@@ -1,0 +1,2 @@
+# name  save  what it shows (one recorded test a line: tests/clips/NAME.inp, played from sta/aes/SAVE.sta;
+# save "boot" = recorded from power-on)

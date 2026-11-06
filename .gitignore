@@ -1,0 +1,19 @@
+# Original game data - never committed, only our patches are
+roms/
+# Working copies extracted from the ROMs and build output
+work/
+build/
+.DS_Store
+# MAME writes these next to wherever it is run
+cfg/
+nvram/
+snap/
+__pycache__/
+recordings/
+# MAME save states (made while testing)
+sta/
+# Personal run.sh settings
+local.cfg
+dist/
+art/title_sky_preview.png
+art/title_sky_try*.png
