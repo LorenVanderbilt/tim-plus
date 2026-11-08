@@ -1,0 +1,6 @@
+#!/bin/sh
+# Build and put the AES set on the BackBit over its USB port (the cart must be running a game so the card shows up):
+#   tools/backbit [hackbuild options]      -> NeoGeo/HACKS AND HOMEBREW/Irritating Maze Dev
+cd "$(dirname "$0")/.." || exit 1
+python3 tools/hackbuild.py "$@" || exit 1
+exec ../neogeo-notes/tools/backbit.sh "Irritating Maze Dev" build/aes/irrmaze.zip

@@ -15,7 +15,10 @@ any Neo Geo project (not just this game), add it there, dated - and correct it w
 repo with no remote, by the user's choice: commit only when the user says so, never push.)
 
 ## How the project works
-- `roms/irrmaze.zip` (the user's, from their Downloads, never modified or committed - NOT MAME's naming: `.bin` files, the program ROM in the CPU's order; `tools/hackbuild.py`'s SOURCE translates it to MAME's names and layout. 236-p1 (2 MB, banked: the CPU's fixed 0x000000-0x0FFFFF is the second half of MAME's file - `P_SPLIT`), s1, m1, v1, v2 (another dump than MAME's: "wrong checksum", runs), c1-c2 (4 MB each), 236-bios (its own MVS BIOS). MAME's Japanese hack BIOS isn't in it). `roms/neogeo.zip` (MVS BIOS), `roms/aes.zip` (ngdevkit's open AES BIOS). `tools/hackbuild.py` applies
+- `roms/irrmaze.zip` (the user's "irrmaze (1).zip" from Downloads, 2026-11-07: MAME's set exactly; never modified or
+  committed). 236-p1 (2 MB, banked: the CPU's fixed 0x000000-0x0FFFFF is the second half of MAME's file - `P_SPLIT`),
+  s1, m1, v1, v2, c1-c2 (4 MB each), 236-bios (its own MVS BIOS). The first zip (`roms/irrmaze-old-v2-dump.zip`:
+  .bin names, a scrambled 236-v2 that made some jingles crackle) is kept but unused. `roms/neogeo.zip` (MVS BIOS), `roms/aes.zip` (ngdevkit's open AES BIOS). `tools/hackbuild.py` applies
   `patches/*.py` (in name order) and writes `build/roms/` (MVS) and `build/aes/` (AES cartridge + software list - MAME's
   own entry with the patched files' checksums). `./run.sh` builds and plays (AES by default; `--mvs` the arcade).
 - A patch = `NAME`, `DESCRIPTION`, `apply(rom)`: `rom.write(addr, new, expect=old, why=...)` (fails loudly if the
@@ -32,13 +35,14 @@ repo with no remote, by the user's choice: commit only when the user says so, ne
   called directly). Unused 0xFF in the fixed half: 0x0F0FF6-0x0FFFFF (~60 KB, FREE_START 0x0F1000), smaller runs at
   0x0E938C (23 KB), 0x0242E4 (15 KB), 0x044B02 (13 KB). Vectors: vblank 0x1272, timer 0x1346.
 - Both builds start in MAME: the arcade one (`mame irrmaze`, with MAME's trackball and control-panel artwork) and the
-  AES cart (`mame aes -cart irrmaze`: its warning screen and attract mode). How the game reads the trackball, and
-  what the AES gives it instead, is the first thing to find.
+  AES cart (`mame aes -cart irrmaze`: its warning screen and attract mode).
+- The trackball is read by the cabinet's BIOS, not the game: it fills 0x10FE02+ (the game reads 0x10FE04 / 0A
+  movement, 0x10FE10 / 11 buttons). Patch 010 fills it from the joystick on the AES (docs/code_map.md "Input").
 
 ## Standing rules (the user's - follow them)
 - **Commit and push only after the user confirms.** Commit messages end with the Co-Authored-By line the session
   gives. Keep `TODO.md` up to date as work is done - but it's local for now (git-excluded via `.git/info/exclude`,
-  the user's call 2026-10-25): never commit it until they say so. (No GitHub remote yet - the user sets one up if they want it.)
+  the user's call 2026-10-25): never commit it until they say so. (GitHub remote: origin, LorenVanderbilt/tim-plus.)
 - **AES first, MVS untouched.** The AES version is the target. Avoid changing anything that affects the MVS game
   (gate new code on the machine type), and tell the user before a change does. Anything that permanently changes
   the AES version - overwriting text or graphics, rather than adding new ones in free space - needs their permission

@@ -15,7 +15,7 @@ local HOLD = {             -- (first frame, last frame, input): some moves and p
 -- NOT FOUND YET for this game (docs/code_map.md once they are): until then the fault count stays 0 and "stuck" can
 -- misfire on a long wait. Bus / address / illegal-instruction errors go to the BIOS, counted as "bios".
 local FAULT = {1, 0}                  -- the game's exception handlers' spin (an empty range for now)
-local VBLANK_WAIT = {0, 0}            -- where a healthy frame ends: the main loop waiting for the next one
+local VBLANK_WAIT = {0x1042, 0x1050}  -- where a healthy frame ends: the main loop waiting for the next one (2026-11-07)
 local cpu = manager.machine.devices[":maincpu"]
 local joy = manager.machine.ioport.ports[":ctrl1:joy:JOY"]
 local frame, faults, pcs, bios, snaps, written = 0, 0, {}, 0, {}, false

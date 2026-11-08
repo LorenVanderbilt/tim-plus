@@ -42,14 +42,11 @@ P_SPLIT = 0x100000                  # the 2 MB program ROM: MAME's file has the 
 FREE_START = 0x0F1000              # ~60 KB of 0xFF to 0x0FFFFF, the fixed half's end (tools/free_space.py, 2026-11-06)
 FIX_FREE_RANGES = []
 FREE_SPRITE_TILES = os.path.join(ROOT, "tools", "free_sprite_tiles.txt")
-# roms/irrmaze.zip (the user's, 2026-11-06) isn't MAME's naming: .bin files, the program ROM in the CPU's order (its
-# halves swapped from MAME's - swapped back, it's MAME's checksum exactly), 236-v2 another dump than MAME's (MAME warns
-# "wrong checksum" and runs it). The build reads it through SOURCE: {MAME's name: (the zip's name, how)}.
-SOURCE = {
-    "236-p1.p1": ("236-p1.bin", "halves"), "236-s1.s1": ("236-s1.bin", None), "236-m1.m1": ("236-m1.bin", None),
-    "236-v1.v1": ("236-v1.bin", None), "236-v2.v2": ("236-v2.bin", None), "236-c1.c1": ("236-c1.bin", None),
-    "236-c2.c2": ("236-c2.bin", None), "236-bios.sp1": ("236-bios.bin", None),
-}
+# roms/irrmaze.zip: MAME's set exactly (the user's "irrmaze (1).zip", 2026-11-07). The first zip (kept as
+# roms/irrmaze-old-v2-dump.zip) had .bin names, the program ROM's halves swapped and a scrambled 236-v2 (over half
+# its bytes differ from MAME's): its ADPCM samples crackled (the character select and course-clear jingles, MAME and
+# the BackBit). SOURCE maps a zip that isn't MAME's naming: {MAME's name: (the zip's name, how)}; empty = MAME's.
+SOURCE = {}
 # ---------------------------------------------------------------------------------------------------------------
 
 ORIG_ZIP = os.path.join(ROOT, "roms", GAME + ".zip")
