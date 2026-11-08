@@ -45,7 +45,8 @@ DESCRIPTION = ("Home console (AES): boots to the title; Start there opens ARCADE
 # ---- where the text goes (fix layer: column 0-39, row 0-31; rows 2-29 are on screen)
 TITLE_ROW = 21              # three rows from here, columns 11-28 (PRESS START was row 22)
 OPTIONS_ROW = 8
-PAUSE_COL, PAUSE_ROW = 12, 10   # the pause box: 16 columns x 8 rows
+PAUSE_COL, PAUSE_ROW = 11, 10   # the pause box: PAUSE_W columns x PAUSE_H rows
+PAUSE_W, PAUSE_H = 19, 9
 
 # ---- the game
 SYSTEM_MODE = 0x10FD82
@@ -78,6 +79,8 @@ DECK_EASE = 2               # each frame the shown position moves 1/2**DECK_EASE
 DECK_SNAP = 8               # ... but at least this much (1/256 course), and snaps when this close
 PANEL_Y = 152               # the cards' height (the game's was 160; smaller = higher)
 ARROW_Y = 64                # the white arrows (objects 6 / 7; the game's 80), level with the course names
+STEADY_DEFAULT = 5          # STEADY HAND (hold A in a maze: the rod slower) at power-on: 1-9 = 10-90% of its
+                            # normal speed, 0 = OFF (the options' and the pause's STEADY HAND setting)
 TRACK_DX, CURSOR_POS, CURSOR_COURSE, SELECT_STATE = 0x10A7CE, 0x10A89A, 0x10A898, 0x10A8A0
 AFTER_PANELS = 0x89CA       # the course select's frame after it has placed the four panels
 
@@ -144,9 +147,23 @@ def apply(rom):
     assert rom.data[0x1292:0x1294] == bytes.fromhex("4EB9") and 0x0F1000 <= joy_code < 0x100000, \
         "the vblank's SYSTEM_IO call should go to patch 010's code"
     title_lines = ["      ARCADE      ", "   2P CHALLENGE   ", "     OPTIONS      "]
-    pause_lines = ["                ", "     PAUSE      ", "                ", "  RESUME        ",
-                   "  RESTART LEVEL ", "  QUIT TO TITLE ", "  INVINCIBLE    ", "                "]
-    assert all(len(s) == 18 for s in title_lines) and all(len(s) == 16 for s in pause_lines)
+    pause_lines = ["", "PAUSE", "", "  RESUME", "  RESTART LEVEL", "  QUIT TO TITLE", "  INVINCIBLE",
+                   "  STEADY HAND", ""]
+    pause_lines[1] = pause_lines[1].center(PAUSE_W)
+    pause_lines = [s.ljust(PAUSE_W) for s in pause_lines]
+    assert all(len(s) == 18 for s in title_lines) and len(pause_lines) == PAUSE_H
+    # '%' for STEADY HAND, in the game font's style (its rows shade 1-7, 14 = the shadow down / right); written as
+    # '`' in this patch's strings (the font is tile 0xF00 + character - '0')
+    shape = ["XX...XX", "XX..XX.", "...XX..", "..XX...", ".XX....", "XX...XX", ".....XX", "......."]
+    pct = [[0] * 8 for _ in range(8)]
+    for y in range(8):
+        for x in range(8):
+            if x < 7 and shape[y][x] == "X":
+                pct[y][x] = y + 1
+            elif any(0 <= y - dy and 0 <= x - dx < 7 and shape[y - dy][x - dx] == "X" for dx, dy in ((1, 0), (0, 1), (1, 1))):
+                pct[y][x] = 14
+    assert rom.add_fix_tile(pct, why="'%' for STEADY HAND") == 0xF00 + ord("`") - 0x30
+    assert (PAUSE_W * PAUSE_H * 2) <= 0x600   # FIX_SAVE's room (spare RAM to 0x10F000; RAM itself at 0x10EF00)
     pal = [0] + [WHITE] * 13 + [SHADOW, BLACK]
     deck_tab = deck_table()
     swaps, copies = [], []
@@ -172,6 +189,7 @@ def apply(rom):
     .equ MUSIC, {RAM + 9}
     .equ SFX, {RAM + 10}
     .equ PCUR, {RAM + 11}
+    .equ STEADY, {RAM + 0x48}           | STEADY HAND - STEADY_DEFAULT (0 at power-on)
     .equ DECK_INIT, {RAM + 12}
     .equ DECK_T, {RAM + 13}
     .equ DECK_P, {RAM + 14}
@@ -195,6 +213,9 @@ def apply(rom):
     bra.w pick_wide             | +52 ... it has grown across (a0 = it)
     bra.w pick_full             | +56 ... and down (a0 = it)
     bra.w hand_look             | +60 the Zap-Rod's look in play: d0 = 4 (no hand) or 16 (the outline hand)
+    bra.w slow_x                | +64 the joystick's X move this frame (d0, 1/256 steps) -> the counter
+    bra.w slow_y                | +68 ... the Y move
+    bra.w p1_buttons            | +72 P1's A / B for the cabinet's button record: d0 = pad (d2) & 0x30
 
 attract_start:
     jsr 0x10A8
@@ -447,11 +468,11 @@ oloop:
     beq.s 1f
     subq.b #1,OCUR
     bpl.s 1f
-    move.b #3,OCUR
+    move.b #4,OCUR
 1:  btst #1,%d7
     beq.s 2f
     addq.b #1,OCUR
-    cmpi.b #4,OCUR
+    cmpi.b #5,OCUR
     bcs.s 2f
     clr.b OCUR
 2:  moveq #0,%d5
@@ -473,6 +494,10 @@ oloop:
     move.b %d3,0x{GAME_LEVEL_DIP:X}
     bra.w 6f
 41: cmpi.b #1,%d4
+    bne.s 40f
+    bsr.w steady_change
+    bra.s 6f
+40: cmpi.b #2,%d4
     bne.s 42f
     move.b MUSIC,%d3
     add.w %d5,%d3
@@ -483,7 +508,7 @@ oloop:
     moveq #0,%d3
 412: move.b %d3,MUSIC
     bra.s 6f
-42: cmpi.b #2,%d4
+42: cmpi.b #3,%d4
     bne.s 6f
     move.b SFX,%d3
     add.w %d5,%d3
@@ -497,16 +522,16 @@ oloop:
     andi.b #0x10,%d3
     or.b %d6,%d3
     beq.s 7f
-    cmpi.b #3,%d4
+    cmpi.b #4,%d4
     beq.s oexit
-    cmpi.b #1,%d4
+    cmpi.b #2,%d4
     bne.s 61f
     moveq #0,%d0
     move.b MUSIC,%d0
     addi.w #0x8000+{MUSIC_FIRST},%d0
     jsr 0x{SOUND:X}
     bra.s 7f
-61: cmpi.b #2,%d4
+61: cmpi.b #3,%d4
     bne.s 7f
     moveq #0,%d0
     move.b SFX,%d0
@@ -549,8 +574,15 @@ draw_options:
     movem.l (%sp)+,%d0/%d5
     addq.w #2,%d0
     addq.b #1,%d5
-    cmpi.b #4,%d5
+    cmpi.b #5,%d5
     bne.s 1b
+    move.w #0xD000,%d1                  | STEADY HAND's value
+    cmpi.b #1,OCUR
+    bne.s 6f
+    move.w #0xF000,%d1
+6:  move.w #0x{vram(27, OPTIONS_ROW + 6):X},%d0
+    move.w #0x0F10,%d2
+    bsr.w draw_steady
     moveq #0,%d3
     move.b 0x{GAME_LEVEL_DIP:X},%d3
     addq.w #1,%d3
@@ -565,28 +597,28 @@ draw_options:
     move.b MUSIC,%d3
     addq.w #1,%d3
     move.w #0xD000,%d1
-    cmpi.b #1,OCUR
+    cmpi.b #2,OCUR
     bne.s 4f
     move.w #0xF000,%d1
 4:  moveq #2,%d4
-    move.w #0x{vram(29, OPTIONS_ROW + 6):X},%d0
+    move.w #0x{vram(29, OPTIONS_ROW + 8):X},%d0
     bsr.w draw_num
     moveq #0,%d3
     move.b SFX,%d3
     addq.w #1,%d3
     move.w #0xD000,%d1
-    cmpi.b #2,OCUR
+    cmpi.b #3,OCUR
     bne.s 5f
     move.w #0xF000,%d1
 5:  moveq #3,%d4
-    move.w #0x{vram(28, OPTIONS_ROW + 8):X},%d0
+    move.w #0x{vram(28, OPTIONS_ROW + 10):X},%d0
     bsr.w draw_num
     lea opt_help(%pc),%a1
-    move.w #0x{vram(8, OPTIONS_ROW + 13):X},%d0
+    move.w #0x{vram(8, OPTIONS_ROW + 15):X},%d0
     move.w #0xD000,%d1
     move.w #0x0F10,%d2
     bsr.w draw_str
-    move.w #0x{vram(8, OPTIONS_ROW + 14):X},%d0
+    move.w #0x{vram(8, OPTIONS_ROW + 16):X},%d0
     bra.w draw_str
 
 | ---- the pause (a loop of its own; returns to the game's frame)
@@ -607,14 +639,24 @@ ploop:
     beq.s 1f
     subq.b #1,PCUR
     bpl.s 1f
-    move.b #3,PCUR
+    move.b #4,PCUR
 1:  btst #1,%d7
     beq.s 2f
     addq.b #1,PCUR
-    cmpi.b #4,PCUR
+    cmpi.b #5,PCUR
     bcs.s 2f
     clr.b PCUR
-2:  tst.b %d6
+2:  cmpi.b #4,PCUR                      | STEADY HAND: Left / Right
+    bne.s 3f
+    moveq #0,%d5
+    btst #3,%d7
+    beq.s 21f
+    moveq #1,%d5
+21: btst #2,%d7
+    beq.s 22f
+    moveq #-1,%d5
+22: bsr.w steady_change
+3:  tst.b %d6
     bne.s presume                       | Start: resume
     btst #4,%d7
     beq.s ploop
@@ -624,8 +666,10 @@ ploop:
     beq.s prestart
     cmpi.b #2,%d0
     beq.s pquit
+    cmpi.b #3,%d0
+    bne.w ploop
     eori.b #1,INVINC
-    bra.s ploop
+    bra.w ploop
 presume:
     bsr.w restore_fix
     move.b #2,PAL_REQ
@@ -660,13 +704,17 @@ draw_pause:
     movem.l (%sp)+,%d0/%d5
     addq.w #1,%d0
     addq.b #1,%d5
-    cmpi.b #8,%d5
+    cmpi.b #{PAUSE_H},%d5
     bne.s 1b
+    move.w #0x{vram(PAUSE_COL + 14, PAUSE_ROW + 7):X},%d0
+    move.w #0xD000,%d1
+    move.w #0xDFF0,%d2
+    bsr.w draw_steady
     lea inv_off(%pc),%a1
     tst.b INVINC
     beq.s 2f
     lea inv_on(%pc),%a1
-2:  move.w #0x{vram(PAUSE_COL + 13, PAUSE_ROW + 6):X},%d0
+2:  move.w #0x{vram(PAUSE_COL + 15, PAUSE_ROW + 6):X},%d0
     move.w #0xD000,%d1
     move.w #0xDFF0,%d2
     bsr.w draw_str
@@ -676,13 +724,46 @@ draw_pause:
     move.w #0xDF0E,%d1                  | '>'
     bra.w put_cell
 
+| ---- STEADY HAND: level 0 = OFF, 1-9 = 10-90%
+steady_level:                           | d0.w = the level
+    move.b STEADY,%d0
+    ext.w %d0
+    addi.w #{STEADY_DEFAULT},%d0
+    rts
+steady_change:                          | d5.w = -1 / 0 / +1
+    bsr.s steady_level
+    add.w %d5,%d0
+    bpl.s 1f
+    moveq #0,%d0
+1:  cmpi.w #9,%d0
+    bls.s 2f
+    moveq #9,%d0
+2:  subi.w #{STEADY_DEFAULT},%d0
+    move.b %d0,STEADY
+    rts
+draw_steady:                            | d0 = VRAM address, d1 = palette << 12, d2 = the space tile: " 50%" / " OFF"
+    move.w %d0,-(%sp)
+    bsr.s steady_level
+    lea steady_off(%pc),%a1
+    tst.w %d0
+    beq.s 1f
+    lea NUMBUF,%a1
+    move.b #0x20,(%a1)
+    addi.b #0x30,%d0
+    move.b %d0,1(%a1)
+    move.b #0x30,2(%a1)
+    move.b #0x60,3(%a1)                 | '%' ('`': the new tile)
+    clr.b 4(%a1)
+1:  move.w (%sp)+,%d0
+    bra.w draw_str
+
 save_fix:
     lea {FIX_SAVE},%a1
     lea 0x3C0000,%a0
     move.w #0x{vram(PAUSE_COL, PAUSE_ROW):X},%d1
-    moveq #15,%d3
+    moveq #{PAUSE_W - 1},%d3
 1:  move.w %d1,%d2
-    moveq #7,%d4
+    moveq #{PAUSE_H - 1},%d4
 2:  move.w %d2,(%a0)
     nop
     nop
@@ -700,11 +781,11 @@ restore_fix:
     lea 0x3C0000,%a0
     move.w #1,4(%a0)
     move.w #0x{vram(PAUSE_COL, PAUSE_ROW):X},%d1
-    moveq #15,%d3
+    moveq #{PAUSE_W - 1},%d3
 1:  move.w %d1,(%a0)
     nop
     nop
-    moveq #7,%d4
+    moveq #{PAUSE_H - 1},%d4
 2:  move.w (%a1)+,2(%a0)
     nop
     dbf %d4,2b
@@ -924,7 +1005,7 @@ no_band:
 pick_start:
     move.w #31,16(%a0)                  | (the instructions this call replaced)
     move.w #1,18(%a0)
-    bsr.s arcade_select
+    bsr.w arcade_select
     bne.s 1f
     move.w #{CARD_SIZE - 224},16(%a0)   | (it grows 32 a frame for 7 frames: to CARD_SIZE)
     move.w #{PANEL_Y - 16 * CARD_SIZE // 256},0x{0x100280 + 14:X}   | the highlight frame, like the grey one
@@ -933,14 +1014,14 @@ pick_start:
 1:  rts
 pick_wide:
     move.w #255,16(%a0)
-    bsr.s arcade_select
+    bsr.w arcade_select
     bne.s 1f
     move.w #{CARD_SIZE},16(%a0)
 1:  rts
 pick_full:
     move.w #255,16(%a0)
     move.w #255,18(%a0)
-    bsr.s arcade_select
+    bsr.w arcade_select
     bne.s 1f
     move.w #{CARD_SIZE},16(%a0)
     move.w #{CARD_SIZE},18(%a0)
@@ -955,6 +1036,45 @@ hand_look:
     btst #0,0x108EED
     beq.s 1f
     move.w #16,%d0                      | the outline hand
+1:  rts
+
+| ---- Slow mode: holding A in a maze (play, or its countdown) moves the rod at STEADY HAND's 10-90% of its speed. Patch
+| 010's joystick code adds each frame's move to its trackball counters; these calls replace those two adds.
+slow_x:
+    bsr.s slow_scale
+    add.w %d0,0x10FE06
+    rts
+slow_y:
+    bsr.s slow_scale
+    add.w %d0,0x10FE0C
+    rts
+p1_buttons:                             | A is slow mode in a maze, not the game's "look at the course" button
+    move.b %d2,%d0                      | (the instructions this call replaced)
+    andi.b #0x30,%d0
+    bsr.s in_maze
+    bne.s 1f
+    andi.b #0x20,%d0                    | in a maze: B only
+1:  rts
+slow_scale:
+    bsr.s in_maze
+    bne.s 1f
+    btst #4,0x10FD96                    | P1 A held
+    beq.s 1f
+    move.w %d0,-(%sp)                   | the move
+    bsr.w steady_level
+    tst.w %d0
+    beq.s 2f                            | OFF: full speed
+    muls.w (%sp),%d0
+    divs.w #10,%d0
+    move.w %d0,(%sp)
+2:  move.w (%sp)+,%d0
+1:  rts
+in_maze:                                | Z set = a maze's countdown or play
+    cmpi.w #8,0x{MODE:X}
+    bne.s 1f
+    cmpi.w #36,0x{COURSE_STEP:X}
+    beq.s 1f
+    cmpi.w #32,0x{COURSE_STEP:X}
 1:  rts
 
 arcade_select:                          | Z set = the console's ARCADE (stage select on)
@@ -993,11 +1113,13 @@ title_lines:
 {chr(10).join("    " + asciz(s) for s in title_lines)}
 pause_lines:
 {chr(10).join("    " + asciz(s) for s in pause_lines)}
-inv_on: {asciz("ON ")}
+inv_on: {asciz(" ON")}
 inv_off: {asciz("OFF")}
+steady_off: {asciz(" OFF")}
 opt_title: {asciz("OPTIONS")}
 opt_lines:
     {asciz("DIFFICULTY            ")}
+    {asciz("STEADY HAND           ")}
     {asciz("MUSIC                 ")}
     {asciz("SOUND EFFECT          ")}
     {asciz("BACK TO TITLE         ")}
@@ -1010,7 +1132,7 @@ opt_help:
     entry = {name: base + 4 * i for i, name in enumerate(
         ["attract_start", "scene_hook", "title_frame", "player_start", "main_hook", "vbl_hook", "hit_check",
          "course_timer", "course_select", "course_deck", "fix_queue", "no_band", "pick_start", "pick_wide",
-         "pick_full", "hand_look"])}
+         "pick_full", "hand_look", "slow_x", "slow_y", "p1_buttons"])}
 
     def jsr(a):
         return bytes.fromhex("4EB9") + a.to_bytes(4, "big")
@@ -1049,3 +1171,12 @@ opt_help:
               expect=bytes.fromhex("317C00FF0010317C00FF0012"), why="course picked, grown down -> CARD_SIZE")
     rom.write(0x18A4A, jsr(entry["hand_look"]) + bytes.fromhex("600C"),   # bra.s 0x18A5E
               expect=bytes.fromhex("303C0010303C0004"), why="the Zap-Rod's look -> B shows the outline hand")
+    for name, count in (("slow_x", 0x10FE06), ("slow_y", 0x10FE0C)):   # patch 010's adds to its counters
+        add = bytes.fromhex("D179") + count.to_bytes(4, "big")
+        site = rom.data.find(add, joy_code, joy_code + 0x200)
+        assert site > 0, "patch 010's counter add not found"
+        rom.write(site, jsr(entry[name]), expect=add, why="joystick move -> slow mode while A is held")
+    p1 = bytes.fromhex("100202000030")      # patch 010: move.b d2,d0; andi.b #0x30,d0 (P1 A / B -> button record)
+    site = rom.data.find(p1, joy_code, joy_code + 0x200)
+    assert site > 0, "patch 010's P1 buttons not found"
+    rom.write(site, jsr(entry["p1_buttons"]), expect=p1, why="P1 A in a maze -> slow mode only, not look-around")

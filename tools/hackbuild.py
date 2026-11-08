@@ -40,7 +40,8 @@ C_NAMES = ["236-c1.c1", "236-c2.c2"]   # one pair: sprite tiles 0-0xFFFF (4 MB e
 P_SPLIT = 0x100000                  # the 2 MB program ROM: MAME's file has the banked half first (the list's
                                     # "continue"): the CPU's fixed 0x000000-0x0FFFFF is its second half
 FREE_START = 0x0F1000              # ~60 KB of 0xFF to 0x0FFFFF, the fixed half's end (tools/free_space.py, 2026-11-06)
-FIX_FREE_RANGES = []
+FIX_FREE_RANGES = [(0xF30, 0xF3F)]   # blank, right after the game's font (its 'a'-'o' places): no fix write in
+                                     # 30000 attract frames or a recorded game (census 2026-11-07)
 FREE_SPRITE_TILES = os.path.join(ROOT, "tools", "free_sprite_tiles.txt")
 # roms/irrmaze.zip: MAME's set exactly (the user's "irrmaze (1).zip", 2026-11-07). The first zip (kept as
 # roms/irrmaze-old-v2-dump.zip) had .bin names, the program ROM's halves swapped and a scrambled 236-v2 (over half

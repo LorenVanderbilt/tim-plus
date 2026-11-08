@@ -1,3 +1,4 @@
 # name  save  what it shows (one recorded test a line: tests/clips/NAME.inp, played from sta/aes/SAVE.sta;
 # save "boot" = recorded from power-on)
 bhand  boot  power-on, title menu, ARCADE, course select (deck, pick at 90%), a maze, B shows / hides the outline hand
+steady  boot  options (STEADY HAND), ARCADE, a maze, the pause menu
