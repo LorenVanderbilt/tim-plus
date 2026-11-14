@@ -127,8 +127,38 @@ def fix_script(rom, at):
 
 
 HIT_SITES = [0x4994, 0x4C60, 0x4E1C, 0x5010]
-MUSIC_FIRST, MUSIC_COUNT = 6, 24    # the first list's entries 6-29 (0-5 are driver commands)
-SFX_COUNT = 129
+# The sound test's lists: the sounds that make a sound (each played alone from the options and recorded,
+# 2026-11-11). The first list's entries 0-5 are driver commands and 6-11 (0x0Axx) fade / volume commands - silent,
+# and they leave the music quiet after - so MUSIC is entries 12-29, less 16 (0x202A: only the noise floor). The effects list (0x24D4) has 31 silent entries
+# (0x15xx / 0x14xx commands and some 0x18xx with no sound), left out. Numbered from 1 in the order kept.
+MUSIC_LIST = [n for n in range(12, 30) if n != 16]
+SFX_SILENT = {12, 30, 31, 32, 33, 34, 35, 40, 41, 46, 52, 60, 66, 68, 77, 78, 83, 89, 97, 103, 105, 113, 114, 117,
+              118, 119, 120, 121, 122, 123, 125}     # (1-based, as the old sound test numbered them)
+SFX_REPEATS = {73, 74, 75, 76, 79, 82, 106, 107, 108, 109}   # the same command as an earlier effect (36-39, 42,
+                                                               # 45, 69-72): the identical sound
+SFX_KEPT = [n - 1 for n in range(1, 130) if n not in SFX_SILENT | SFX_REPEATS]   # (0-based effect numbers)
+# Voices: the narration's two tables of 37 events (0x211A4 Japanese, 0x211EE English; the region picks one -
+# docs/code_map.md "Voices") name effects; those get a VOICE list of their own (English and the shared ones first,
+# then the Japanese-only), and SOUND EFFECT keeps the rest.
+VOICE_JP, VOICE_EN, VOICE_EVENTS = 0x211A4, 0x211EE, 37
+SFX_TABLE = 0x24D4
+
+
+def voice_lists(rom):
+    code = lambda n: rom.u16(SFX_TABLE + 2 * n)
+    en = [rom.u16(VOICE_EN + 2 * e) for e in range(VOICE_EVENTS)]
+    jp = [rom.u16(VOICE_JP + 2 * e) for e in range(VOICE_EVENTS)]
+    voice_codes = {code(n) for n in en + jp if n != 0xFFFF}
+    kept_by_code = {}
+    for n in SFX_KEPT:
+        kept_by_code.setdefault(code(n), n)
+    voices = []
+    for n in [x for x in en if x != 0xFFFF] + jp:
+        k = kept_by_code.get(code(n))
+        if k is not None and k not in voices:
+            voices.append(k)
+    sfx = [n for n in SFX_KEPT if code(n) not in voice_codes]
+    return sfx, voices
 WHITE, SHADOW, BLACK = 0x7FFF, 0x0333, 0x8000
 MENU_PAL = 13               # fix palette borrowed (saved, then put back) for the options' and the pause's text
 MENU_PAL_ADDR = 0x400000 + MENU_PAL * 32
@@ -166,6 +196,8 @@ def apply(rom):
     assert (PAUSE_W * PAUSE_H * 2) <= 0x600   # FIX_SAVE's room (spare RAM to 0x10F000; RAM itself at 0x10EF00)
     pal = [0] + [WHITE] * 13 + [SHADOW, BLACK]
     deck_tab = deck_table()
+    SFX_LIST, VOICE_LIST = voice_lists(rom)
+    MUSIC_COUNT, SFX_COUNT, VOICE_COUNT = len(MUSIC_LIST), len(SFX_LIST), len(VOICE_LIST)
     swaps, copies = [], []
     for n, (orig, rows_up) in enumerate(FIX_MOVES.items()):
         if rows_up is None:
@@ -189,6 +221,7 @@ def apply(rom):
     .equ MUSIC, {RAM + 9}
     .equ SFX, {RAM + 10}
     .equ PCUR, {RAM + 11}
+    .equ VOICE, {RAM + 0x49}
     .equ STEADY, {RAM + 0x48}           | STEADY HAND - STEADY_DEFAULT (0 at power-on)
     .equ DECK_INIT, {RAM + 12}
     .equ DECK_T, {RAM + 13}
@@ -468,11 +501,11 @@ oloop:
     beq.s 1f
     subq.b #1,OCUR
     bpl.s 1f
-    move.b #4,OCUR
+    move.b #5,OCUR
 1:  btst #1,%d7
     beq.s 2f
     addq.b #1,OCUR
-    cmpi.b #5,OCUR
+    cmpi.b #6,OCUR
     bcs.s 2f
     clr.b OCUR
 2:  moveq #0,%d5
@@ -509,7 +542,7 @@ oloop:
 412: move.b %d3,MUSIC
     bra.s 6f
 42: cmpi.b #3,%d4
-    bne.s 6f
+    bne.s 43f
     move.b SFX,%d3
     add.w %d5,%d3
     bpl.s 421f
@@ -518,27 +551,50 @@ oloop:
     bcs.s 422f
     moveq #0,%d3
 422: move.b %d3,SFX
+    bra.s 6f
+43: cmpi.b #4,%d4
+    bne.s 6f
+    move.b VOICE,%d3
+    add.w %d5,%d3
+    bpl.s 431f
+    move.w #{VOICE_COUNT - 1},%d3
+431: cmpi.w #{VOICE_COUNT},%d3
+    bcs.s 432f
+    moveq #0,%d3
+432: move.b %d3,VOICE
 6:  move.b %d7,%d3
     andi.b #0x10,%d3
     or.b %d6,%d3
     beq.s 7f
-    cmpi.b #4,%d4
-    beq.s oexit
+    cmpi.b #5,%d4
+    beq.w oexit
     cmpi.b #2,%d4
     bne.s 61f
     moveq #0,%d0
     move.b MUSIC,%d0
-    addi.w #0x8000+{MUSIC_FIRST},%d0
+    lea music_list(%pc),%a0
+    move.b (%a0,%d0.w),%d0
+    addi.w #0x8000,%d0
     jsr 0x{SOUND:X}
     bra.s 7f
 61: cmpi.b #3,%d4
-    bne.s 7f
+    bne.s 62f
     moveq #0,%d0
     move.b SFX,%d0
+    lea sfx_list(%pc),%a0
+    move.b (%a0,%d0.w),%d0
+    jsr 0x{SOUND:X}
+    bra.s 7f
+62: cmpi.b #4,%d4
+    bne.s 7f
+    moveq #0,%d0
+    move.b VOICE,%d0
+    lea voice_list(%pc),%a0
+    move.b (%a0,%d0.w),%d0
     jsr 0x{SOUND:X}
 7:  btst #5,%d7
     beq.w oloop
-    move.w #0x8001,%d0                  | B: stop (the attract's own first command)
+    move.w #0x8005,%d0                  | B: stop (driver command 0x20; the attract's 0x8001 mutes every sound after)
     jsr 0x{SOUND:X}
     bra.w oloop
 oexit:
@@ -574,7 +630,7 @@ draw_options:
     movem.l (%sp)+,%d0/%d5
     addq.w #2,%d0
     addq.b #1,%d5
-    cmpi.b #5,%d5
+    cmpi.b #6,%d5
     bne.s 1b
     move.w #0xD000,%d1                  | STEADY HAND's value
     cmpi.b #1,OCUR
@@ -613,12 +669,22 @@ draw_options:
 5:  moveq #3,%d4
     move.w #0x{vram(28, OPTIONS_ROW + 10):X},%d0
     bsr.w draw_num
+    moveq #0,%d3
+    move.b VOICE,%d3
+    addq.w #1,%d3
+    move.w #0xD000,%d1
+    cmpi.b #4,OCUR
+    bne.s 8f
+    move.w #0xF000,%d1
+8:  moveq #2,%d4
+    move.w #0x{vram(29, OPTIONS_ROW + 12):X},%d0
+    bsr.w draw_num
     lea opt_help(%pc),%a1
-    move.w #0x{vram(8, OPTIONS_ROW + 15):X},%d0
+    move.w #0x{vram(8, OPTIONS_ROW + 17):X},%d0
     move.w #0xD000,%d1
     move.w #0x0F10,%d2
     bsr.w draw_str
-    move.w #0x{vram(8, OPTIONS_ROW + 16):X},%d0
+    move.w #0x{vram(8, OPTIONS_ROW + 18):X},%d0
     bra.w draw_str
 
 | ---- the pause (a loop of its own; returns to the game's frame)
@@ -1122,7 +1188,12 @@ opt_lines:
     {asciz("STEADY HAND           ")}
     {asciz("MUSIC                 ")}
     {asciz("SOUND EFFECT          ")}
+    {asciz("VOICE                 ")}
     {asciz("BACK TO TITLE         ")}
+music_list: .byte {", ".join(str(n) for n in MUSIC_LIST)}
+sfx_list: .byte {", ".join(str(n) for n in SFX_LIST)}
+voice_list: .byte {", ".join(str(n) for n in VOICE_LIST)}
+    .even
 opt_help:
     {asciz("LEFT RIGHT  CHANGE")}
     {asciz("A  PLAY     B  STOP")}

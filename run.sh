@@ -10,9 +10,12 @@
 # Personal defaults go in local.cfg (not committed), a shell file.
 # To record a play session so it can be replayed exactly later (saved to recordings/NAME.inp):
 #   ./run.sh -- -record NAME.inp     (recordings are mode-specific)
-# Controls (MAME defaults): 1 = Start, 5 = Select (AES) / insert coin (MVS), arrows = move,
-# Left Ctrl/Alt/Space/Shift = A/B/C/D, Tab = MAME menu, Esc = quit.
+# Controls: 1 = Start, 5 = Select (AES) / insert coin (MVS), arrows = move, Z X C V = A B C D
+# (../neogeo-notes/tools/mame/neogeo-keys.cfg), Tab = MAME menu, Esc = quit.
+# M = save for Claude (sta/aes/new_01.sta, new_02 ... - ../neogeo-notes/tools/mame/savekey.lua; new_saves.txt also
+# logs the course step 0x10806C), Shift+F7 = MAME's own save.
 cd "$(dirname "$0")" || exit 1
+export SAVEKEY_WORD=${SAVEKEY_WORD:-10806C}
 mode=aes
 bios=""
 build_args=""
@@ -31,6 +34,6 @@ python3 tools/hackbuild.py $build_args || exit 1
 mkdir -p recordings
 if [ "$mode" = aes ]; then
     [ -f build/aes/neogeo.xml ] || { echo "No AES build (need roms/aes.zip) - use --mvs, or see tools/hackbuild.py"; exit 1; }
-    exec mame aes -hash build/aes -rompath build/aes -cart irrmaze $bios -input_directory recordings -window -skip_gameinfo -nowaitvsync "$@"
+    exec mame aes -hash build/aes -rompath build/aes -cart irrmaze $bios -ctrlrpath ../neogeo-notes/tools/mame -ctrlr neogeo-keys -autoboot_script ../neogeo-notes/tools/mame/savekey.lua -input_directory recordings -window -skip_gameinfo -nowaitvsync "$@"
 fi
-exec mame irrmaze -rompath build/roms $bios -input_directory recordings -window -skip_gameinfo -nowaitvsync "$@"
+exec mame irrmaze -rompath build/roms $bios -ctrlrpath ../neogeo-notes/tools/mame -ctrlr neogeo-keys -autoboot_script ../neogeo-notes/tools/mame/savekey.lua -input_directory recordings -window -skip_gameinfo -nowaitvsync "$@"

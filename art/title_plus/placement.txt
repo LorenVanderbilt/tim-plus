@@ -1,0 +1,18 @@
+"Plus" for the title screen - mock-ups (2026-11-12), to edit before they go into the game.
+
+Positions: the top-left corner of each sprite PNG on the 320 x 224 title screen (title_screen.png, MAME's view):
+
+  plus_block.png              x 124, y 132    the "The"-style outline letters, centred under the logo
+  plus_neon_*_lit.png         x 224, y  95    the neon script, diagonal over the frame's lower-right corner
+  plus_neon_*_unlit.png       x 224, y  95    (same spot: the sign switched off)
+
+To move one, change its numbers here (or tell Claude where it should go).
+
+Editing:
+- The sprite PNGs are indexed: colour 0 (magenta) = transparent; the rest are the colours used. Keep to the
+  same colours (or tell Claude about new ones): a Neo Geo sprite has 15 colours plus transparent.
+- The neon lit / unlit files are the same picture with two palettes - in the game the sign lights up by switching
+  colours, not pictures. Edit the lit one; the unlit one follows by colour index (or edit both palettes).
+- The block letters have no fill: the background shows through them, like the logo's.
+
+mockup_*.png / .gif: the full title screen with each version, enlarged 3x (the GIF: the sign lighting up).

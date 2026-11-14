@@ -1,0 +1,3 @@
+# Sprite tiles proven free (2026-11-12) - blank in the C ROMs (the end-of-ROM padding), never written to sprite VRAM
+# in the census (30000 attract frames, the bhand clip: no tile >= 0xFA24).
+FA24-FFFF 1500

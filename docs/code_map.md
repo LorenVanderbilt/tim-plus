@@ -111,3 +111,45 @@ What's been found in the program ROM, with how it was found. (Started 2026-11-06
 - **Text**: all fix-layer text is in the 191 scripts of table 0x2D708; the region (0x10FD83, 0 = Japan) picks a
   Japanese script at 38 places (`move.w #jp,d0; tst.b 0x10FD83; beq; move.w #en,d0`). docs/text_export.xlsx lists
   them side by side.
+
+## Voices / narration (2026-11-12)
+- **Narration events**: 0x2115A (d1 = event 0-36) plays the event's voice from table 0x211A4 (Japanese region) or
+  0x211EE (other regions; 0xFFFF = none: events 3, 4, 5, 10 have no English line). Effect numbers (0-based, list
+  0x24D4) - the voices are the 0x18xx commands. Some are shared by both tables (events 0-2, 6, 9, 33-36).
+- **Who triggers them**: the mazes' trigger zones (RAM list 0x10A364, 16 bytes each: x, y, w, h, ..., +12 = event
+  with bit 14 set = a voice), checked at 0x1FF10 -> 0x1FF8A. Per course: practice 11-13; novice 15-20; expert 11,
+  12, 21-28; professional 29-32. Plus direct calls (0x243C with a fixed number): effects 35-37 (events 0-2), 41
+  (6), 44 (9), 79 / 80 (English events 7 / 8), 86 (event 14's English line).
+- **Switched off by the developers**: the cutscene scripts' "play a sound" (command 0x8004 -> 0x12632 -> 0x12738,
+  an rts before the real code at 0x1273A) and "play a voice" (0x8008 -> 0x12636 -> 0x1274E, an rts before
+  0x12750, which plays from the same two tables). Six voice commands sit in the course tour scripts (0x28212 ev 15,
+  0x28296 ev 17, 0x28472 ev 11, 0x284F2 ev 21, 0x28596 ev 23, 0x28862 ev 27) - lines the mazes play anyway.
+- **The win's voice**: the goal (0x9F84) plays effect 68 + course (0x1860-0x1863 = VOICE 26-29, events 33-36's
+  lines): the course's congratulations, in both regions. (Corrected 2026-11-12: first thought never played.)
+- **Never played**: the
+  Japanese-only lines of events 3, 7, 8, 14 (0x185C, 0x1843, 0x1844, 0x182F). Some triggered English events'
+  voices are silent (16, 24, 30, 32 -> 0x184D, 0x1855, 0x185D, 0x185F; also their Japanese ones).
+
+## Sound driver (Z80, 236-m1; 2026-11-12 - for music ducking under voices)
+- Disassembly: MAME's debugger headless (`-debug -debugger none`, Lua `manager.machine.debugger:command("dasm
+  FILE,0,0x10000,1,:audiocpu")`) - no Z80 disassembler is installed.
+- NMI 0x0066 reads port 0 into a 64-byte queue 0xFE4A (write index 0xFEB1, read 0xFEB0; bytes 1 / 3 / 0x10 handled
+  at once). The main loop 0x0133 takes one byte: 0x42EC[cmd] = kind (1 -> 0x0C6D: a jump table of commands 0x00-
+  0x1C; 2 -> 0x01EC (0x20 + next byte = a song); ...). A two-byte request from the 68k (0x243C lists) is a command
+  byte then a parameter byte (0x0201 waits for it).
+- Commands seen: 0x04 (0x0EE9) silences and leaves the music / effects flags off (the attract's 0x8001 - mutes the
+  later sound test), 0x0A + speed (0x0F5B) = fade the music out (0xFE27 = 1, speed at 0xFAC0), 0x0E + n (0x0FE4)
+  = YM timer B (tempo), 0x11 (0x0F7A) = cancel a fade, 0x20 + n = play song n.
+- The fade (0x1A67, each tick while 0xFE27 is set): 0xFABF (FM attenuation, added to the TL; a song sets it from
+  its header at 0x134F) +1, the six ADPCM-A music channels' volumes (0xFD2C + 16 n, +2) -1, 0xFD8E -5, 0xFAC5 -6;
+  the song ends past 0x5A. Voices are ADPCM-A effects (0x18xx), on top: nothing lowers the music for them.
+- Poking 0xFABF +12 / 0xFAC5 -60 mid-song quietened one song by about a third and another not at all (notes
+  already sounding keep their volume; drums are ADPCM-A) - a proper duck has to act where the driver writes each
+  channel's volume to the chip.
+- **The win's sounds** (novice, 2026-11-12): crossing the line queues 0x0A20 (fade the music); the next frame 0x000F,
+  0x0020 (stop), the congratulations voice, then the win jingle (music 0x2030). No sound effect for the crossing.
+- **Ducking (patch 030)**: driver commands 0x0B / 0x0C set / clear 0xFE00; hooks at 0x2BB6 (FM total level out,
+  every carrier volume - 0x2B2E sets them through the 0x2BF8 algorithm table), 0x2BD8 (ADPCM-A music channel
+  volume, 0x2BC7), 0x2B1D (port A writes: register 0x1B = ADPCM-B volume); code at 0x2D60 (zeros past the
+  0x2C54 table, never read). The 68k: 0x243C -> a voice sets a request + its length; 0x1364 (the vblank's sender)
+  sends the byte between commands (like the game's own 0x7F there, a5 + 0x631A).
