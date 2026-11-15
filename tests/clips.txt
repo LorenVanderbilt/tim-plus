@@ -2,3 +2,4 @@
 # save "boot" = recorded from power-on)
 bhand  boot  power-on, title menu, ARCADE, course select (deck, pick at 90%), a maze, B shows / hides the outline hand
 steady  boot  options (STEADY HAND), ARCADE, a maze, the pause menu
+intro  boot  power-on: the intro (figure, PRESS START, flash, logo) untouched to the title, Start, ARCADE, the new instructions to the end
