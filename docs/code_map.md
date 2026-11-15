@@ -153,3 +153,33 @@ What's been found in the program ROM, with how it was found. (Started 2026-11-06
   volume, 0x2BC7), 0x2B1D (port A writes: register 0x1B = ADPCM-B volume); code at 0x2D60 (zeros past the
   0x2C54 table, never read). The 68k: 0x243C -> a voice sets a request + its length; 0x1364 (the vblank's sender)
   sends the byte between commands (like the game's own 0x7F there, a5 + 0x631A).
+
+## Instructions (course step 4, 2026-11-14 - patch 070)
+- Text: a list of fix-script numbers typed into a box, 180 frames each (0xD864): 0xD908 on a Japanese console
+  (0x98, 0x98, 0x2B, 0x9A, 0x9B, 0x2B), 0xD916 elsewhere (157, 158, 0x2B, 159, 160, 0x2B); 0x2B = the empty box.
+  0xD8F8 (9, 9, 0x2B, 10, 11, 0x2B, 0x2B) is used by nothing. Script layout (157): VRAM 0x7056, a 7-row box -
+  border (palette 6, tiles 0x5EE / 0x5EF / 0x5FE / 0x5FF, corners 0x600 / 0x610), line 1 top + bottom halves, a
+  gap row, line 2 top + bottom, border; 34 characters a line. The tall font: tile 0xE00 + (A-O 0xC1-0xCF, P-Z
+  0xE0-0xEA; bottom half + 0x10), space 0xC0, '-' 0xEB / 0xFB, '"' 0xED / 0xC0, '.' 0xC0 / 0xFD.
+- Demo: an action table at 0xD924 (8 bytes: routine, parameter, frames; each called every frame of its time + 1;
+  -1 ends the instructions, 0xD89A). Actions: 0xDBA0 / 0xDBC2 move the rod, 0xDA58 / 0xDA6C look on / off,
+  0xDBFE the camera, 0xDC32 sets 0x108EC4 (0 = wait), 0xDC38 sets the hand flag 0x108EEC (unused: the Japanese
+  B panel's), 0xDA34 on the ending. Any button (0x10A7C4) skips the instructions.
+
+## The ending (2026-11-14)
+- After Professional: step 56 (the cabinet's card dispenser prize, 0x10FE26 / 0x10E340), step 60 = a cutscene
+  (0x1635E, state 0x10805A: 56-76 THANK YOU FOR YOUR PLAYING, END, PRESENTED BY ...; 80 picks sprites 176-195,
+  84 the figure's tiles (table 0x2CD06, 20 x 32, palette 0x10) + palettes (0x202E), 88 places them, 92 scrolls
+  it up 1 px a frame with random zaps (sounds 110 / 114) to the top, 96-116 down again with GAME OVER (sprites
+  1-20, palettes 0x40-0x61)), then step 68 (white) -> the attract. Running out of tries never shows it (40, 48,
+  64, 0). One ending only, as far as the code shows.
+  Its flags 0x108058 (on) / 0x10805A (state) stay set afterwards; left on, the instructions' course draws black
+  (patch 080 clears them).
+- **Palette banks at start-up** (2026-11-14): the attract's start-up (0x3308) calls 0x17EB8 (0x3350): bank 0 on
+  screen (0x3A001F), its 16 palettes from 0x4800C + the rest and the backdrop 0x7DDD, then bank 1 (0x3A000F). Run
+  mid-picture, bank 0's old gray backdrop showed as a band (after the ranking screen); patch 080 blacks it first.
+  Patch 040's 0x1566 backdrop (0x7777 then 0x8000) is now one write (080).
+- The title's logo: scenes 256-288 (0x14506 table): 256 clears, 264 palettes (0x25D6), 268 the logo's objects
+  (0x14D36), 272 fades it in (0x16036 = only the backdrop's pulsing navy, written straight to 0x401FFE; 0x160E0 the fix dither), 276 places it, 280 the backdrop to white, 284 the fix-layer
+  dither wipe (0x16172), 288 ends. The title's message (0x10804A: 1 blank, 2 PRESS START BUTTON, 3 INSERT COIN,
+  4 FREE PLAY; texts at 0x17C8) is drawn by the vblank (0x1766) at 0x7176 each frame it's set.
