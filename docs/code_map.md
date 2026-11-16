@@ -48,6 +48,11 @@ What's been found in the program ROM, with how it was found. (Started 2026-11-06
   used at 0x20230 etc.: limit = base + this + 50).
 - The rank 0x108018 rises during a game (0xA2B8 / 0xA2EC: +1, capped at 7) and picks per-rank parameter sets for
   things in the mazes (0x213D6 and next: 8 bytes per rank - likely the moving obstacles' speeds / timings; to check).
+  (2026-11-15, read from the code - docs/difficulty.xlsx) About 30 obstacle routines (0x21368-0x224AE, the course
+  object lists 0x428E2 / 0x429F2) start from a standard value (= rank index 3, level 4) and, while 0x108048 is set
+  and 0x10E001 bit 1 clear, take a rank-indexed one instead. 0x108048 is set at a course's start (0xB42E / 0xC442)
+  and cleared by a miss (0x90B4), which also drops the rank by 1, not below GAME LEVEL (0x90B8-0x90CA). Clearing a
+  course raises it by 1 (0xA2B8 / 0xA2EC, in the GOAL!!! routine 0x9E6E). Not yet watched happening in play.
 
 ## Game flow (2026-11-07 - found for patch 020 menus)
 - **Main loop** 0x1042: `bset #7,0x104B6F` then waits until the vblank clears it (0x1048-0x104E = regress.lua's
@@ -183,3 +188,14 @@ What's been found in the program ROM, with how it was found. (Started 2026-11-06
   (0x14D36), 272 fades it in (0x16036 = only the backdrop's pulsing navy, written straight to 0x401FFE; 0x160E0 the fix dither), 276 places it, 280 the backdrop to white, 284 the fix-layer
   dither wipe (0x16172), 288 ends. The title's message (0x10804A: 1 blank, 2 PRESS START BUTTON, 3 INSERT COIN,
   4 FREE PLAY; texts at 0x17C8) is drawn by the vblank (0x1766) at 0x7176 each frame it's set.
+
+## Course finishes and the title logo (2026-11-15)
+- **Each course's finish is its own trigger-zone handler**, called from 0x1FFB6 (the zone's saved d1 at 10(sp) of the
+  handler): practice 0x200FA, novice 0x202DC, expert 0x207B6, professional 0x20C72 - each `move.l 0x108EB2,<rec>`
+  (0x10A7F6 / 7FA / 7FE / 802), keeps the best time (0x10E31C + 12 per course), then course step 44. Patches 060 / 140.
+- **The title logo is one picture**: 120 tiles (0x8D1A-0x8D8C) in sticky sprites 220-234, one palette (184), the TM
+  included. The parts keep to their own colours: 1 black backing, 2 green grid, 3-4 red map, 5-9 the title text,
+  10-15 the frame (greys + white) - so each recolours alone, but parts are missing where another covers them.
+  Split out in art/title_plus/logo_parts/.
+- **Buttons in a maze (console, patch 130)**: patch 010's P1 button record goes through patch 020's p1_buttons, then
+  patch 130's: B -> the cabinet's button 1 (hold = the game's look mode, 0x4890), C -> button 2 (the hand toggle).
