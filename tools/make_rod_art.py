@@ -7,7 +7,7 @@ import os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from PIL import Image
 import hackbuild
-from png_tiles import write_indexed
+from png_tiles import write_indexed, neo_to_rgb as rgb
 
 ROOT = hackbuild.ROOT
 OUT = os.path.join(ROOT, "art", "rod")
@@ -16,12 +16,6 @@ ENTRIES = [0x51E54, 0x51E58, 0x51E5C, 0x51E60, 0x51E64]
 PAL = [0x0000, 0x0000, 0x3211, 0x7222, 0x5343, 0x7444, 0x1554, 0x7555, 0x3666, 0x7AAA, 0x5CCC, 0x7FFF, 0x0D83,
        0x0532, 0x0888, 0x397E]
 SIZES = (80,)
-
-
-def rgb(w):
-    c5 = lambda v: v * 255 // 31
-    return (c5(((w >> 7) & 0x1E) | ((w >> 14) & 1)), c5(((w >> 3) & 0x1E) | ((w >> 13) & 1)),
-            c5(((w << 1) & 0x1E) | ((w >> 12) & 1)))
 
 
 def frame_pixels(rom, entry):

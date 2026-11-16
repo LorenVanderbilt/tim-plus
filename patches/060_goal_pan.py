@@ -16,6 +16,8 @@ DESCRIPTION = "Home console (AES): the rod goes further into the goal before the
 # A zone fires once: the caller (0x1FF10) marks it (bit 15 of the zone's +12 word, kept in d1 on its stack) after the
 # handler returns - to fire again next frame, that saved d1's bit is cleared.
 
+from patchlib import jsr, jmp
+
 GOAL_EXTRA = 64         # pixels on past the goal line before the win
 GOAL_SPEED = 8          # pixels a frame the rod zooms in once it's crossed
 
@@ -108,9 +110,9 @@ play_move:
 1:  rts
 """
     base = rom.place_code(code, why="AES: further into the goal before the win")
-    rom.write(GOAL_HANDLER, bytes.fromhex("4EF9") + base.to_bytes(4, "big"),
+    rom.write(GOAL_HANDLER, jmp(base),
               expect=bytes.fromhex("2B6D0EB227FA"), why="goal zone: the win a little further in (console)")
-    rom.write(PLAY_TIMER_CALL, bytes.fromhex("4EB9") + (base + 4).to_bytes(4, "big"),
-              expect=bytes.fromhex("4EB9") + timer_next.to_bytes(4, "big"), why="play's timer: held in the goal zone")
-    rom.write(MOVE_SITE, bytes.fromhex("4EB9") + (base + 8).to_bytes(4, "big") + bytes.fromhex("4E71"),
+    rom.write(PLAY_TIMER_CALL, jsr(base + 4),
+              expect=jsr(timer_next), why="play's timer: held in the goal zone")
+    rom.write(MOVE_SITE, jsr(base + 8) + bytes.fromhex("4E71"),
               expect=bytes.fromhex("302D27CE322D27D0"), why="play's movement: the rod zooms into the goal")

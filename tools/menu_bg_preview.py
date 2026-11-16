@@ -25,10 +25,7 @@ SETS = [
 SCREEN = (320, 224)
 
 
-def rgb(w):
-    c5 = lambda v: v * 255 // 31
-    return (c5(((w >> 7) & 0x1E) | ((w >> 14) & 1)), c5(((w >> 3) & 0x1E) | ((w >> 13) & 1)),
-            c5(((w << 1) & 0x1E) | ((w >> 12) & 1)))
+rgb = png_tiles.neo_to_rgb                      # a colour word -> (r, g, b)
 
 
 def palette():

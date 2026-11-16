@@ -16,6 +16,8 @@ DESCRIPTION = "Home console (AES): the music dips while a narration voice plays,
 # New code in the driver: 0x2D54-0x2DFF, zeros never read (just past the full 256-entry table at 0x2C54; read-tap
 # census over every song, effect and voice, 2026-11-12). Its RAM: 0xFE00 (in an unused run, cleared at reset).
 
+from patchlib import jmp
+
 # ---- knobs (to tune by ear before release) ------------------------------------------------------------------------
 DUCK_FM = 8          # FM music: total-level steps added while ducking (0.75 dB each: 8 = 6 dB quieter)
 DUCK_DRUMS = 8       # ADPCM-A music channels: volume steps taken off (0-31 scale, 0.75 dB each)
@@ -204,7 +206,6 @@ duck_len: .byte {", ".join(str(x) for x in lengths)}
     .even
 """
     base = rom.place_code(code68, why="AES: the music dips under voices")
-    jmp = lambda a: bytes.fromhex("4EF9") + a.to_bytes(4, "big")
     rom.write(0x243C, jmp(base), expect=bytes.fromhex("48E760C0D040"), why="sound request -> a voice ducks the music")
     rom.write(0x1364, jmp(base + 4) + bytes.fromhex("4E71"), expect=bytes.fromhex("4A6D631A67000010"),
               why="vblank sound sender -> duck on / off bytes")

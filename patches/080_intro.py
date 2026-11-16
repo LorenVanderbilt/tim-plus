@@ -1,10 +1,10 @@
 NAME = "intro"
 DESCRIPTION = "Home console (AES): at power-on, the ending's brain-in-a-jar figure scrolls up, then the title's flash"
 
-# The user's idea (2026-11-14, mock-up intro_mock3): after the eye catcher, at power-on only, the figure from the
-# end of the ending (a brain in a jar, scrolling up - seen only after beating Professional) plays, with the
-# title's PRESS START BUTTON blinking over it; at the top of its scroll the title's white flash takes over and the
-# title comes up. Start during it goes to the title menu, as Start does in the attract anyway (patch 020).
+# After the eye catcher, the figure from the end of the ending (a brain in a jar, scrolling up; normally seen only
+# after beating Professional) plays with the title's PRESS START BUTTON blinking over it. At the top of its scroll
+# the title's white flash takes over and the title comes up. Start during it goes to the title menu, as Start does
+# anywhere in the attract (patch 020). (It was power-on only; patch 110 plays it at every start of the attract.)
 #
 # How: the ending is a cutscene (course step 60) whose states run from 0x1635E (state 0x10805A): 80 picks the
 # sprites (176-195), 84 writes the figure's tiles (table 0x2CD06) and palettes, 88 places them, 92 scrolls the
@@ -12,24 +12,26 @@ DESCRIPTION = "Home console (AES): at power-on, the ending's brain-in-a-jar figu
 # Here the attract's scene player (0xE34E, patch 020's hook) runs states 80-92 instead at power-on; at state 96
 # it hands over to the logo scene's flash (scene 276: the backdrop fades to white, 284 wipes to the title); once
 # the screen is white the figure's sprites are hidden and the logo made as scenes 264-272 make it (palettes, the
-# logo's objects 0x14D36, its fade-in's end), so the wipe reveals it as usual. PRESS START BUTTON is the title's own message (0x10804A =
-# 2, drawn by the vblank; 1 = blank, 8 frames in 32 as the title blinks it) in the title's palette 6 (written at
-# the start of each vblank: the ending's palettes differ). Music: the sound test's MUSIC 01 under it and on through the
-# title (the demo after it, or a game, stops it with its own music).
+# logo's objects 0x14D36, its fade-in's end), so the wipe reveals it as usual.
+# PRESS START BUTTON is the title's own message (0x10804A = 2, drawn by the vblank; 1 = blank, 8 frames in 32 as the
+# title blinks it) in the title's palette 6, written at the start of each vblank since the ending's palettes differ.
+# The music is the sound test's MUSIC 01, playing on through the title until the demo or a game starts its own.
+
+from patchlib import jsr
 
 SYSTEM_MODE = 0x10FD82
 SCENE_STEP, MESSAGE, MESSAGE_PAL, FRAMES = 0x108052, 0x10804A, 0x10804C, 0x10A882
 END_STATE = 0x10805A
 END_FLAG = 0x108058                    # 0x108058 / 0x10805A: the ending's on, its state - both 0 after
 GO_TITLE = 0x10EF00                    # patch 020's: set at power-on / after a game
-MUSIC_SENT = 0x10EEFB                  # (spare RAM) the power-on music sent
-INTRO = 0x10EEFA                       # (spare RAM) 0 not yet (power-on) / 1 playing / 2 handing over / 3 done
+MUSIC_SENT = 0x10EEFB                  # spare RAM: the power-on music has been sent
+INTRO = 0x10EEFA                       # spare RAM: 0 not yet (power-on) / 1 playing / 2 handing over / 3 done
 FIGURE_SPRITES = (176, 20)             # the ending's figure: sprites 176-195
 SOUND = 0x243C
-MUSIC = 0x800C                         # the sound test's MUSIC 01 (the user's pick, 2026-11-14): the intro + title,
-                                       # from the attract's start (17 frames before the intro: the user's pick)
+MUSIC = 0x800C                         # the sound test's MUSIC 01, for the intro and title, from the attract's
+                                       # start (17 frames before the intro)
 TITLE_PAL6 = [0x0000, 0x7FFF, 0x5FE1, 0x4FD1, 0x6FB1, 0x5FA0, 0x5F90, 0x6F70, 0x1557, 0x7779, 0x1AAB, 0x7CCD,
-              0x1EEE, 0x000D, 0x0000, 0x7FFF]    # the title's fix palette 6 (PRESS START BUTTON), read 2026-11-14
+              0x1EEE, 0x000D, 0x0000, 0x7FFF]    # the title's fix palette 6 (PRESS START BUTTON)
 
 
 def apply(rom):
@@ -172,7 +174,6 @@ attract_off:                            | (0xE258: the attract's start sends sou
 pal6: .word {", ".join("0x%04X" % c for c in TITLE_PAL6)}
 """
     base = rom.place_code(code, why="AES: the power-on intro (the ending's figure)")
-    jsr = lambda a: bytes.fromhex("4EB9") + a.to_bytes(4, "big")
     rom.write(0xE34E, jsr(base), expect=jsr(scene_next), why="attract scenes: the power-on intro first")
     rom.write(0x1292, jsr(base + 4), expect=jsr(vbl_next), why="vblank: the intro's PRESS START colours")
     old = rom.data[0x1566:0x156C]

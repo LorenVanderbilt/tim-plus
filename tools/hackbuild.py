@@ -25,14 +25,13 @@ arcade set's names and the list's can differ (see SOURCE for this game's zip).
 
 (Made from Joy Joy Kid Plus's hackbuild, 2026-11-06 - the shared parts, the game's settings collected here.)
 """
-import argparse, glob, hashlib, importlib.util, os, re, shutil, subprocess, sys, tempfile, zipfile, zlib
+import argparse, glob, hashlib, importlib.util, os, re, shutil, subprocess, tempfile, zipfile, zlib
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # ---- the game -------------------------------------------------------------------------------------------------
 GAME = "irrmaze"                    # MAME's name for the set (and the software list's)
 TITLE = "The Irritating Maze (hack)"
-PREFIX = "236-"                     # the cart's ROM files (236 - an MVS-only release)
 P1_NAME = "236-p1.p1"
 S1_NAME = "236-s1.s1"
 M1_NAME = "236-m1.m1"               # the sound driver's Z80 ROM
@@ -40,8 +39,11 @@ C_NAMES = ["236-c1.c1", "236-c2.c2"]   # one pair: sprite tiles 0-0xFFFF (4 MB e
 P_SPLIT = 0x100000                  # the 2 MB program ROM: MAME's file has the banked half first (the list's
                                     # "continue"): the CPU's fixed 0x000000-0x0FFFFF is its second half
 FREE_START = 0x0F1000              # ~60 KB of 0xFF to 0x0FFFFF, the fixed half's end (tools/free_space.py, 2026-11-06)
-FIX_FREE_RANGES = [(0xF30, 0xF3F), (0x3D5, 0x3DF), (0x3E5, 0x3F0)]   # blank, at the ends of the game's two
-# fonts: never drawn in 30000 attract frames + the recorded games (census 2026-11-07 / -12), in no text script
+FIX_FREE_RANGES = [(0xF30, 0xF3F), (0x3D5, 0x3DF), (0x3E5, 0x3F0), (0xCFA, 0xCFF)]   # blank, at the ends of the
+# game's two fonts: never drawn in 30000 attract frames + the recorded games (census 2026-11-07 / -12), in no text
+# script. 0xCFA-0xCFF (2026-11-16): never written in 30000 attract frames, the bhand / steady / intro clips and 10
+# saves (goals, win, ending, course select, mazes), and a poison test (filled solid) changed no pixel of any frame.
+# (New ranges go at the end: the earlier patches' tiles come off the front, so they stay where they are.)
 FREE_SPRITE_TILES = os.path.join(ROOT, "tools", "free_sprite_tiles.txt")
 # roms/irrmaze.zip: MAME's set exactly (the user's "irrmaze (1).zip", 2026-11-07). The first zip (kept as
 # roms/irrmaze-old-v2-dump.zip) had .bin names, the program ROM's halves swapped and a scrambled 236-v2 (over half

@@ -2,34 +2,27 @@ NAME = "course-goals"
 DESCRIPTION = ("Home console (AES): on the expert and professional courses too, the rod goes on into the goal "
                "before the course ends")
 
-# The user (2026-11-15): the practice course's finish (then the expert's) should get what patch 060 gave the novice
-# goal (the rod zooms on past the line, the camera following, the timer held, then the end). Each course's finish is
+# The expert and professional courses' finishes get what patch 060 gave the novice goal: the rod zooms on past the
+# line, the camera following, the timer held, then the end. Each course's finish is
 # its own trigger-zone handler - "move.l 0x108EB2,(its time record); move.w 0x108812,d0 ..." (it also keeps the best
 # time): practice 0x200FA, novice 0x202DC (patch 060's), expert 0x207B6, professional 0x20C72 - all called the same
 # way (from 0x1FFB6: the zone's saved d1 at 10(sp) - checked with breakpoints on practice and expert). This is patch
-# 060's goal_zone for expert and professional (practice: the user preferred it as it was): same RAM, so patch 060's play_timer (the timer held) and play_move (the zoom)
-# do the rest.
+# 060's goal_zone for expert and professional (practice is left as it was, which played better). It uses the same
+# RAM, so patch 060's play_timer (the timer held) and play_move (the zoom) do the rest.
 
-import importlib.util, os
+
+from patchlib import load_patch, jmp
 
 SYSTEM_MODE = 0x10FD82
 ROD_X, ROD_Y = 0x108EA6, 0x108EAA
 ROD_OLD_X, ROD_OLD_Y = 0x108EAE, 0x108EB0
 FINISHES = {0x207B6: 0x10A7FE,  # a course's finish handler: move.l 0x108EB2,<this> (6 bytes) - then its end
-            0x20C72: 0x10A802}  # (expert, professional; practice 0x200FA / 0x10A7F6 left as it was - the user
-                                # tried it and liked the old way better, 2026-11-15)
-
-
-def _goal060():
-    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "060_goal_pan.py")
-    spec = importlib.util.spec_from_file_location("goal060", path)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
+            0x20C72: 0x10A802}  # (expert, professional; practice 0x200FA / 0x10A7F6 is left as it was,
+                                # which played better)
 
 
 def apply(rom):
-    g = _goal060()
+    g = load_patch("060_goal_pan.py")
     first, hold, dx, dy = g.GOAL_FIRST, g.GOAL_HOLD, g.GOAL_DX, g.GOAL_DY
     entries = "".join(f"""
 finish_{k}:
@@ -92,5 +85,5 @@ finish:                                 | Z set = the end now (or the arcade), Z
     base = rom.place_code(code, why="AES: expert / professional, further into the goal")
     for k, (at, rec) in enumerate(FINISHES.items()):
         old = bytes.fromhex("2B6D0EB2") + (rec - 0x108000).to_bytes(2, "big")
-        rom.write(at, bytes.fromhex("4EF9") + (base + 4 * k).to_bytes(4, "big"), expect=old,
+        rom.write(at, jmp(base + 4 * k), expect=old,
                   why="course finish 0x%X: the end a little further in (console)" % at)

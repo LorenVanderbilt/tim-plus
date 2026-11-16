@@ -21,6 +21,8 @@ DESCRIPTION = "Home console (AES): the joystick steers the Zap-Rod (a virtual tr
 # RAM: 0x10FE00 (the speed now), 0x10FE06 / 0x10FE0C (the X / Y counters, 1/256 steps) - gaps between the records,
 # written only by the BIOS's power-on clear (a tap over attract + a game, 2026-11-06).
 
+from patchlib import jsr
+
 # ---- knobs (speeds in trackball steps per frame; 1 step = 1 pixel for most of the game's pointers) ----------------
 START_SPEED = 1.0       # speed the moment a direction is pressed (a tap moves just a little)
 TOP_SPEED = 3.0         # speed after holding a direction ACCEL_FRAMES frames
@@ -123,5 +125,5 @@ def apply(rom):
 8:  .word {start}, {accel}, {top}
 """
     new = rom.place_code(code, why="AES: joystick -> virtual trackball (after SYSTEM_IO in the vblank)")
-    rom.write(VBLANK_SYSTEM_IO, bytes.fromhex("4EB9") + new.to_bytes(4, "big"),
+    rom.write(VBLANK_SYSTEM_IO, jsr(new),
               expect=bytes.fromhex("4EB900C0044A"), why="vblank SYSTEM_IO -> + the AES joystick")

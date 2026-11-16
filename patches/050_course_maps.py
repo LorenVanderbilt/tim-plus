@@ -1,9 +1,9 @@
 NAME = "course-maps"
-DESCRIPTION = ("Home console (AES): the course select's map pictures redrawn by the user at the console's size; "
+DESCRIPTION = ("Home console (AES): the course select's map pictures redrawn by hand at the console's size; "
                "no cards flashed in the game's own layout before the deck")
 
 # Patch 020 shows the course select's four map pictures shrunk to CARD_SIZE (90%) by the hardware, which drops whole
-# rows and columns (text in the pictures got hard to read). The user redraws them at that size
+# rows and columns (text in the pictures got hard to read). They're redrawn by hand at that size
 # (art/course_maps/NAME_90.png, 231 x 117, from the original's colours); this patch stores each as new sprite tiles
 # (in the free end-of-ROM tiles, tools/free_sprite_tiles.txt) and, on the console's course select only, shows that
 # card unshrunk (the course record screen etc. show the cards full size: the original pictures there).
@@ -19,6 +19,7 @@ DESCRIPTION = ("Home console (AES): the course select's map pictures redrawn by 
 
 import os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tools"))
+from patchlib import jsr
 from png_tiles import read_rgba        # (rows of ((r, g, b), alpha))
 
 ART = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "art", "course_maps")
@@ -179,7 +180,6 @@ blank_list: .space 512
     code = code.replace("@CARDS_NEXT@", "%X" % cards_next).replace("@PICK_NEXT@", "%X" % pick_next)
 
     base = rom.place_code(code, why="AES: the redrawn course maps")
-    jsr = lambda a: bytes.fromhex("4EB9") + a.to_bytes(4, "big")
     rom.write(0x2D0C, jsr(base) + bytes.fromhex("4E714E71"), expect=bytes.fromhex("22110281000FFFFFD3C1"),
               why="sprite builder: a redrawn card's tile list (console)")
     rom.write(a_after + 2, (base + 4).to_bytes(4, "big"), expect=cards_next.to_bytes(4, "big"),

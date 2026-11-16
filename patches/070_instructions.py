@@ -16,8 +16,10 @@ DESCRIPTION = "Home console (AES): the instructions explain the console's contro
 # through by this patch's copy of 0xD81A-0xD84F, which picks the table.
 #
 # Each screen shows a page of two lines of the tall font (34 characters a line) - a fresh page each time (the
-# original scrolled a line at a time, which the user found disorienting). Every panel lasts two pages (a one-page
+# original scrolled a line at a time, which was disorienting). Every panel lasts two pages (a one-page
 # panel stays up twice as long). Characters: A-Z, space, '.', '-', '"'.
+
+from patchlib import jsr
 
 PANELS = [             # each panel: pages of two lines (34 characters at most), 3 seconds a page
     [("MOVE THE ZAP-ROD ON THE SCREEN", "WITH THE JOYSTICK."),
@@ -174,7 +176,6 @@ our_scripts:
 {data}
 """
     base = rom.place_code(code, why="AES: the instructions' new text")
-    jsr = lambda a: bytes.fromhex("4EB9") + a.to_bytes(4, "big")
     rom.write(0xD854, jsr(base) + bytes.fromhex("4E71") * 5,
               expect=bytes.fromhex("41FA00B24A2D7D83670000064" + "1FA00B4"), why="instructions: the console's list")
     rom.write(0xD878, jsr(base + 4) + bytes.fromhex("4E71") * 4,

@@ -28,11 +28,13 @@ DESCRIPTION = ("Home console (AES): boots to the title; Start there opens ARCADE
 #       ARCADE        the game's own STAGE SELECT and PRACTICE settings switched on (the course select, with the
 #                     practice course), then the game starts as before. Its course select has no countdown and
 #                     offers every course every time (the game drops played ones, practice too).
-#       2P CHALLENGE  not made yet (does nothing).
-#       OPTIONS       a black screen (sprites hidden, white text): DIFFICULTY 1-8 (the game's GAME LEVEL setting,
+#       2P CHALLENGE  does nothing here; patch 250 makes it.
+#       OPTIONS       (patch 170 has since replaced this screen with its own)
+#                     a black screen (sprites hidden, white text): DIFFICULTY 1-8 (the game's GAME LEVEL setting,
 #                     0x10FD8C), MUSIC and SOUND EFFECT tests (the game's own sound lists, 0x2498 / 0x24D4: A plays,
 #                     B stops), BACK TO TITLE (the logo again, with the menu open).
-#   * PAUSE: Start during a course's countdown or play opens a box over the maze (everything stops: the game's
+#   * PAUSE (patch 230 has since replaced the menu with its own): Start during a course's countdown or play opens
+#     a box over the maze (everything stops: the game's
 #     frame doesn't run): RESUME (Start does it too), RESTART LEVEL (the course set-up again, no try lost), QUIT TO
 #     TITLE (ends the game the way a game over does), INVINCIBLE ON / OFF (touching a wall then works like the
 #     practice course: the Zap-Rod is pushed back; the touch count never runs out).
@@ -41,6 +43,8 @@ DESCRIPTION = ("Home console (AES): boots to the title; Start there opens ARCADE
 # main loop does while it runs) and draws on the fix layer itself; colours change only in the vblank (fix palette
 # 15, restored after, and the backdrop for the options), and the vblank sends the sound test's commands (0x1364 /
 # 0x13F6, which it would otherwise skip).
+
+from patchlib import fix_vram as vram, jsr, jmp
 
 # ---- where the text goes (fix layer: column 0-39, row 0-31; rows 2-29 are on screen)
 TITLE_ROW = 21              # three rows from here, columns 11-28 (PRESS START was row 22)
@@ -164,8 +168,6 @@ MENU_PAL = 13               # fix palette borrowed (saved, then put back) for th
 MENU_PAL_ADDR = 0x400000 + MENU_PAL * 32
 
 
-def vram(col, row):
-    return 0x7000 + col * 32 + row
 
 
 def asciz(s):
@@ -1205,16 +1207,13 @@ opt_help:
          "course_timer", "course_select", "course_deck", "fix_queue", "no_band", "pick_start", "pick_wide",
          "pick_full", "hand_look", "slow_x", "slow_y", "p1_buttons"])}
 
-    def jsr(a):
-        return bytes.fromhex("4EB9") + a.to_bytes(4, "big")
-
     rom.write(0x1008, entry["attract_start"].to_bytes(4, "big"), expect=bytes.fromhex("000010A8"),
               why="USER request 2 (the attract starts) -> + boot-to-title flag")
     rom.write(0xE34E, jsr(entry["scene_hook"]), expect=bytes.fromhex("4EB9000144DA"),
               why="attract scene player -> skip to the logo after boot / a game")
     rom.write(0xE56A, jsr(entry["title_frame"]) + bytes.fromhex("6A10"), expect=bytes.fromhex("536D28A06A000012"),
               why="title countdown -> the title menu")
-    rom.write(0x128, bytes.fromhex("4EF9") + entry["player_start"].to_bytes(4, "big"),
+    rom.write(0x128, jmp(entry["player_start"]),
               expect=bytes.fromhex("4EF900001220"), why="PLAYER_START -> the menu decides in the attract")
     rom.write(0x1066, jsr(entry["main_hook"]), expect=bytes.fromhex("3B7C0001287E"),
               why="main loop -> Start: title menu / pause")

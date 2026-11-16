@@ -6,3 +6,5 @@ intro  boot  power-on: the intro (figure, PRESS START, flash, logo) untouched to
 practice_goal  practice_goal  the practice course's finish as the original (the course ends at the line)
 expert_goal  expert_goal  the expert course's goal: the rod zooms on 64 px into the goal box, then GOAL
 pro_goal  pro_goal  the professional course's goal: the rod zooms on 64 px into the goal box, then GOAL
+options  boot  options: DIFFICULTY through all five, ROD SPEED, SOUND TEST, BABY, back, ARCADE, a course with the clock at "--"
+twop  boot  2P CHALLENGE: rules, START, practice, a miss each, the goal, the winner screen, Start to the title

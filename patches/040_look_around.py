@@ -7,7 +7,8 @@ DESCRIPTION = ("Home console (AES): LOOK AROUND in the pause menu (timer stopped
 # The game's own look mode (play sub-state 0x108EC2 = 4, 0x4890): the stick moves the camera (at twice the rod's
 # speed) instead of the rod; letting go goes to sub-state 8 (0x4A48), which glides the camera back to the rod, then
 # 0. On the arcade machine it was "hold button 1" - and the timer ran on, and the walls still counted. On the console
-# A is slow mode in a maze (patch 020), so it's offered here from the pause instead:
+# A is slow mode in a maze (patch 020), so it's offered here from the pause instead (patch 130 later put it back on
+# B, and patch 230's pause menu dropped this row):
 #   * Pause -> LOOK AROUND (the pause box's last row, below STEADY HAND): the box closes and the look mode starts as
 #     0x4D8C starts it. A or B ends it (the camera glides back, then play goes on).
 #   * While looking and gliding back: no timer (the 0x13BE8 calls in sub-states 4 and 8) and no wall check (0x17590,
@@ -24,6 +25,8 @@ DESCRIPTION = ("Home console (AES): LOOK AROUND in the pause menu (timer stopped
 # touch just doesn't happen: the rod goes back to where it was the frame before (0x108EAE / 0x108EB0, which the move
 # routine 0x1B114 keeps - as the practice push-back uses them) - it stops at walls and obstacles, without a sound.
 # The touch sites (patch 020's hit_check calls) at 0x4E1C (play), 0x5010 and 0x4C60 go on as "nothing touched".
+
+from patchlib import find_once, jsr, jmp
 
 SYSTEM_MODE = 0x10FD82
 P1_CHANGE, P2_CHANGE = 0x10FD97, 0x10FD9D
@@ -59,26 +62,20 @@ TOUCH_SITES = {0x4E1C: 0x4ED8, 0x5010: 0x4FE0, 0x4C60: 0x4C4E}   # a touch site 
 COLLIDE = 0x17590
 
 
-def find_one(rom, pattern, lo=0x0F1000, hi=0x100000, what=""):
-    at = rom.data.find(pattern, lo, hi)
-    assert at >= 0 and rom.data.find(pattern, at + 1, hi) < 0, "not found once: %s" % what
-    return at
-
-
 def apply(rom):
     # ---- patch 020's pause, in place
     pcur = PCUR.to_bytes(4, "big")
     up = bytes.fromhex("13FC0004") + pcur                 # move.b #4,PCUR (Up from the top: the last row)
     down = bytes.fromhex("0C390005") + pcur               # cmpi.b #5,PCUR (Down past the last row: the top)
     invinc = bytes.fromhex("0C0000036600")                # cmpi.b #3,d0; bne.w ploop (then eori INVINC)
-    a_up, a_down = find_one(rom, up, what="pause up"), find_one(rom, down, what="pause down")
-    a_inv = find_one(rom, invinc, what="pause dispatch")
+    a_up, a_down = find_once(rom, up, "pause up"), find_once(rom, down, "pause down")
+    a_inv = find_once(rom, invinc, "pause dispatch")
     ploop = a_inv + 6 + int.from_bytes(rom.data[a_inv + 6:a_inv + 8], "big", signed=True)
     assert rom.data[a_inv + 8:a_inv + 10] == bytes.fromhex("0A39"), "eori INVINC should follow"
     presume = a_inv + 8 + 8 + 4                          # after eori.b #1,INVINC (8) and bra.w ploop (4)
     last = b"  STEADY HAND      \x00" + b" " * 19 + b"\x00"
-    a_text = find_one(rom, last, what="pause text") + 20
-    lines = find_one(rom, b" " * 19 + b"\x00" + b"PAUSE".center(19) + b"\x00", what="pause lines")
+    a_text = find_once(rom, last, "pause text") + 20
+    lines = find_once(rom, b" " * 19 + b"\x00" + b"PAUSE".center(19) + b"\x00", "pause lines")
     # the pause loop: bsr.w draw_pause; bsr.w wait_vbl
     assert rom.data[ploop:ploop + 2] == b"\x61\x00" and rom.data[ploop + 4:ploop + 6] == b"\x61\x00"
     wait_vbl = ploop + 6 + int.from_bytes(rom.data[ploop + 6:ploop + 8], "big", signed=True)
@@ -101,8 +98,8 @@ def apply(rom):
     vbl_next = int.from_bytes(rom.data[0x1294:0x1298], "big")         # patch 020's vblank hook
     pick_full = int.from_bytes(rom.data[0x8BEC:0x8BF0], "big")        # patch 020's course-picked size
     assert rom.data[0x8BEA:0x8BEC] == b"\x4E\xB9" and pick_full >= 0x0F1000
-    after = bytes.fromhex("4EF9") + AFTER_PANELS.to_bytes(4, "big")
-    a_after = find_one(rom, after, what="patch 020's course select end")
+    after = jmp(AFTER_PANELS)
+    a_after = find_once(rom, after, "patch 020's course select end")
     assert rom.data[0x1292:0x1294] == b"\x4E\xB9" and vbl_next >= 0x0F1000
     assert all(rom.data[t:t + 2] == b"\x4E\xB9" and rom.data[t + 2:t + 6] == hit_check.to_bytes(4, "big")
                for t in TOUCH_SITES), "patch 020's touch sites"
@@ -370,7 +367,6 @@ pick_tall:
 1:  rts
 """
     base = rom.place_code(code, why="AES: LOOK AROUND from the pause")
-    jsr = lambda a: bytes.fromhex("4EB9") + a.to_bytes(4, "big")
 
     rom.write(a_up, bytes.fromhex("13FC0005") + pcur, expect=up, why="pause: Up from the top -> LOOK AROUND")
     rom.write(a_down, bytes.fromhex("0C390006") + pcur, expect=down, why="pause: six rows")
@@ -393,12 +389,12 @@ pick_tall:
     rom.write(0x1292, jsr(base + 36), expect=jsr(vbl_next), why="vblank: + the rod's ring pulsing red")
     # the course select: Right = the next course (patch 020 had Left: btst #2 / #3 swapped, in place)
     lr = bytes.fromhex("08010002670252000801000367025300")
-    at = find_one(rom, lr, what="course select left / right")
+    at = find_once(rom, lr, "course select left / right")
     rom.write(at, bytes.fromhex("08010003670252000801000267025300"), expect=lr,
               why="course select: Right = the next course, Left = the one before")
     rom.write(0x1566, jsr(base + 40) + bytes.fromhex("4E71"), expect=bytes.fromhex("33FC777700401FFE"),
               why="start-up backdrop: black, not gray (no gray flash after the eye catcher)")
-    rom.write(a_after, bytes.fromhex("4EF9") + (base + 44).to_bytes(4, "big"), expect=after,
+    rom.write(a_after, jmp(base + 44), expect=after,
               why="course select: the maps a little taller (fill the frame)")
     rom.write(0x8BEC, (base + 48).to_bytes(4, "big"), expect=pick_full.to_bytes(4, "big"),
               why="course picked: the map a little taller too")

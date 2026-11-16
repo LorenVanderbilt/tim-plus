@@ -199,3 +199,38 @@ What's been found in the program ROM, with how it was found. (Started 2026-11-06
   Split out in art/title_plus/logo_parts/.
 - **Buttons in a maze (console, patch 130)**: patch 010's P1 button record goes through patch 020's p1_buttons, then
   patch 130's: B -> the cabinet's button 1 (hold = the game's look mode, 0x4890), C -> button 2 (the hand toggle).
+
+## Spare RAM and the staff roll (2026-11-16)
+- **0x10E380-0x10E9FF looks unused**: no game code refers to it (the hits in a disassembly are data tables read as
+  code), and a write census found nothing writing it outside the start-up clears (0x17F40-46, the BIOS's 0xC110xx)
+  on the title, menus, mazes, win, goal and ending. Patch 230 saves the fix cells under the pause box at 0x10E400.
+- **The staff roll** (ending state 44, 0x16DDE): the camera follows waypoints (0x172C0, 2 px a frame; -1 / n = zone n,
+  -1 / -1 = the end); the slides run on their own clock (0x16B50, ~217 frames each) from a list (0x16CCA): a word
+  (the row the lines stop at) and (script, start row) byte pairs, ending -1. The scripts (table 0x17308, 0x2F of
+  them) are fix-layer scripts copied to RAM and moved up a row a step. Headings 2 x 2 tiles a letter (palette byte
+  0x14, tile 0x440 + 0x20 * (n / 8) + 2 * (n % 8)), names 1 x 2 (0x13: A-O 0x391 on, P-Z 0x3B0 on). Patch 220.
+- **The vblank's fix-layer work** runs at 0x132E (the queued fix scripts 0x1F32, then 0x1666) - anything that must stay
+  on top of the fix layer every frame goes after it (patch 210's BETA 1).
+- **Course tour** (step 24, 0xC4A0): a list per course (table 0xC544; 8-byte entries: a routine, 4 bytes for it;
+  -1 ends). Practice's: 0xCAD4 (the sign), 0xC88A + 0xC8B6 / C914 / C972 / C9D0 (the rules ticker, scripts
+  161-165 - 166-170 Japanese), then its pans; the others': 0xCAD4, 0xCA5C (the sign, blinking) and their pans.
+  Practice can't be skipped before its 6th entry (0xC4A0). Its PRACTICE COURSE label: script 120, queued at the
+  countdown (0xCFF8). The spare Zap-Rods under the clock: 0x10808C = tries - 1 (0 on practice, 0x3B8E).
+- **Practice's colours** (2026-11-16): the course's background palettes load to 64+ (80+ for practice) at 0x2302E;
+  the countdown's fade-in (0x22FB2) always writes 64+ - an original bug, harmless as practice never restarts in
+  place (a miss clears palettes 16-253 at 0x9AD6). Its miss looks like a time-out (0x9004 sets 0x10A85C): no smoke,
+  no fade, ~230 frames against ~277.
+- **The vblank's sprite heights** (0x12E0): each frame SCB3 gets the lists at 0x102160 / 0x102560 (by turns) for
+  sprites 41-104 and 220-283, and zeros for 105-168 and 284-347 (targets 0x104B12-18, counts 0x104AEC / AEE). A screen
+  of our own keeps its sprites in 1-40, 169-219 or 348-380.
+- **Sprite pieces** (table 0x5100C, the writer 0x2C44 -> formats 0x2ED2-0x324E): a long (format << 29, columns - 1 <<
+  24, rows - 1 << 20, offset to the data); formats 0-7 pack (tile, attribute) per tile differently (0: two words; 1: a
+  header attribute + tile words; 3: tile word + palette byte; ...) - patch 250's piece_cells decodes all 8. Objects:
+  0x100000 + 128 n: +4 bank (table 0x48000), +6 animation, +8 frame, +22 palette word. The after-a-course-win
+  portraits: pieces 0xC30 (the man, 10 x 13) / 0xC2C (the lady, 9 x 13), palettes 224 + offset (colours at
+  0x4EF0C...). The arcade intro's big portraits (both shocked) are other tiles.
+- **The screen change's fade** (0x108074, the vblank 0x39F4 -> 0x3A56): while not 0 the vblank fills the whole fix
+  layer with a shade tile (0xBC08 ... 0xBC0E) each frame, stepping it toward 0.
+- **The miss's chimes**: jingle 0x8019 at 0x956E and 0x979C, only with the time-up flag 0x10A85C (a time-out, or
+  any practice miss - set at 0x900C); patch 260 plays them on every miss on the console.
+- **Tour end / skip wait**: 60 frames (0x10A8A2) set at 0xC51E (the tour's end) / 0xC538 (a skip) - patch 200.

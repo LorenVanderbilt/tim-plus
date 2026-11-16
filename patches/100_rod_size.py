@@ -1,8 +1,8 @@
 NAME = "rod-size"
 DESCRIPTION = "Home console (AES): a smaller Zap-Rod (redrawn at 80%, its hit area to match) on easier difficulties"
 
-# The user's idea (2026-11-15): on some lower difficulties, a smaller rod. Mock-ups: the ball redrawn (not the
-# hardware shrink, which drops pixel rows) at 90% and 80%; tried both on the BackBit, the user picked 80%.
+# A smaller rod for the lower difficulties (patch 240 turns it on): the ball redrawn at 80% rather than shrunk by
+# the hardware, which drops pixel rows. (90% was tried on the BackBit too; 80% read better.)
 #
 # The look: the rod in play is object 0 (0x100000), its looks are the animations of bank 0x38 (0x18AC0's table picks
 # one): 0x1C no hand (piece entries 0x51E54-0x51E64: the ball alone, 2 x 2 tiles), 0x00 the outline hand (patch
@@ -20,7 +20,8 @@ SMALL_ROD = [1, 1, 1, 0, 0, 0, 0, 0]   # DIFFICULTY 1-8: 1 = the 80% rod, 0 = th
 
 import os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tools"))
-from png_tiles import read_indices
+from patchlib import jsr, jmp
+from png_tiles import read_indices, neo_to_rgb as rgb
 
 ART = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "art", "rod")
 SIZE = 80
@@ -32,12 +33,6 @@ PAL = [0x0000, 0x0000, 0x3211, 0x7222, 0x5343, 0x7444, 0x1554, 0x7555, 0x3666, 0
 BOX_TABLE = 0xE882E
 FULL_BOXES = (0x08F4, 0x08FA, 0x0900)
 NEW_BOXES_AT = 0xE9400                  # in the unused 0xFF run at 0xE938C (ids must stay under 0x8000)
-
-
-def rgb(w):
-    c5 = lambda v: v * 255 // 31
-    return (c5(((w >> 7) & 0x1E) | ((w >> 14) & 1)), c5(((w >> 3) & 0x1E) | ((w >> 13) & 1)),
-            c5(((w << 1) & 0x1E) | ((w >> 12) & 1)))
 
 
 def boxes(size):
@@ -198,9 +193,8 @@ pairs:
 {chr(10).join("list_%d: .byte %s%s    .even" % (k, ", ".join("0x%02X" % b for b in l), chr(10)) for k, l in enumerate(data))}
 """
     base = rom.place_code(code, why="AES: the smaller rod")
-    jsr = lambda a: bytes.fromhex("4EB9") + a.to_bytes(4, "big")
     rom.write(0x2D0C, jsr(base), expect=jsr(prev), why="sprite builder: the smaller rod's pictures")
-    rom.write(0x18AAC, bytes.fromhex("4EF9") + (base + 4).to_bytes(4, "big"), expect=bytes.fromhex("337C08F40018"),
+    rom.write(0x18AAC, jmp(base + 4), expect=bytes.fromhex("337C08F40018"),
               why="the rod's hit boxes: by size")
     rom.write(0x2C44, jsr(base + 8), expect=bytes.fromhex("487AFFFE3C1B"),
               why="sprite builder: the rod's animation boxes by size")

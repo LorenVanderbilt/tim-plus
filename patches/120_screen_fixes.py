@@ -2,17 +2,19 @@ NAME = "screen-fixes"
 DESCRIPTION = ("Home console (AES): no colour streaks at the attract's start (palette writes kept in the vblank); "
                "the title's copyright line one row lower")
 
-# 1. Colour streaks (the user, on the BackBit, 2026-11-15: "two staticy thin horizontal lines mid screen for a second
-#    right before the intro"). Palette writes during the picture show on real hardware (../neogeo-notes/findings.md),
+# 1. Colour streaks: on the BackBit, two thin static lines showed mid-screen for a second right before the intro.
+#    Palette writes during the picture show on real hardware (../neogeo-notes/findings.md),
 #    not in MAME. At every attract start the start-up 0x3308 runs with interrupts off for about a frame and a half:
 #    * its palette bank 0 fill (0x3350 -> 0x17EB8, patch 080's palbank_init) ran at lines 91-128 - now it waits for
 #      the vblank (the LSPC line counter, 0x3C0006 >> 7 = 0x100 + the screen line; the picture is lines 16-239,
 #      0x110-0x1EF) and fills faster (movem, 12 longs at a time), bank switches included, inside it;
 #    * the vblank it held off then ran at line ~163 and its palette upload (0x1FE8: the queue at 0x10AAEA) wrote 68
 #      colours there - now the upload waits (the queue stays) when it is called inside the picture.
-# 2. The copyright line (SNK CORP. OF AMERICA ... 1997, fix script 190 at 0x2DA04, row 25) one row lower, the user's
-#    pick (2026-11-15): on the console the fix-script queue (0x1F14, patch 020's fix_queue) gets a copy of the script
-#    starting at row 26 (the arcade's script is untouched).
+# 2. The copyright line (SNK CORP. OF AMERICA ... 1997, fix script 190 at 0x2DA04, row 25) one row lower: on the
+#    console the fix-script queue (0x1F14, patch 020's fix_queue) gets a copy of the script starting at row 26 (the
+#    arcade's script is untouched).
+
+from patchlib import jsr, jmp
 
 SYSTEM_MODE = 0x10FD82
 LINE_REG = 0x3C0006
@@ -120,9 +122,8 @@ copyright: .byte {", ".join("0x%02X" % b for b in moved)}
     .even
 """
     base = rom.place_code(code, why="AES: screen fixes")
-    jsr = lambda a: bytes.fromhex("4EB9") + a.to_bytes(4, "big")
     rom.write(0x3350, jsr(base), expect=jsr(palbank_prev), why="start-up bank 0 fill: in the vblank")
-    rom.write(UPLOAD, bytes.fromhex("4EF9") + (base + 4).to_bytes(4, "big"), expect=bytes.fromhex("4A6D007A6600"),
+    rom.write(UPLOAD, jmp(base + 4), expect=bytes.fromhex("4A6D007A6600"),
               why="palette upload: never inside the picture")
     rom.write(0x1F16, (base + 8).to_bytes(4, "big"), expect=queue_prev.to_bytes(4, "big"),
               why="fix scripts: the copyright line a row lower")

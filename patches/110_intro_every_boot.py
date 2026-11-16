@@ -1,12 +1,11 @@
 NAME = "intro-every-time"
 DESCRIPTION = "Home console (AES): the power-on intro plays at every start of the attract (for now: after games too)"
 
-# The user (2026-11-15): on the BackBit the intro (patch 080) played once - going back to the cart's menu and loading
-# the game again skipped it. Patch 080 plays it while its flag INTRO is 0 and leaves it at 3: MAME (and the AES BIOS
-# here) clears work RAM at a reset, but there the RAM survived, so the flag stayed 3. A first fix (a mark left at every
-# hand-back to the BIOS, a start without it = a fresh one) still skipped it there; the user asked to drop the "once"
-# for now (to reproduce a glitch they suspect in it): the intro now plays at every start of the attract - power-on,
-# a reload, and after each game.
+# On the BackBit the intro (patch 080) played only once: going back to the cart's menu and loading the game again
+# skipped it. Patch 080 plays it while its flag INTRO is 0 and leaves it at 3. MAME (and the AES BIOS there) clears
+# work RAM at a reset, but on the cart the RAM survived, so the flag stayed 3. A first fix (a mark left at every
+# hand-back to the BIOS, so a start without it counted as fresh) still skipped it there. So the intro now plays at
+# every start of the attract: at power-on, on a reload, and after each game.
 # Two places clear its flags (and the ending's, in case a reset came mid-intro), so it doesn't hang on one way in:
 #   * USER request 2 (the attract starts), before patch 020's handler - early enough for the music's early start;
 #   * the attract's scene player, at step 4 with patch 020's GO_TITLE set (where patch 080 starts the intro), in front
