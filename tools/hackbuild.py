@@ -378,8 +378,10 @@ def main():
 
     entries, rom = load_original()
     print("Applying %d patch(es): %s" % (len(chosen), ", ".join(chosen) or "(none)"))
+    rom.applied = []                    # the patches applied so far, by NAME (a patch can see what came before it)
     for n in chosen:
         print("* %s - %s" % (n, patches[n].DESCRIPTION))
+        rom.applied.append(n)
         patches[n].apply(rom)
     for line in rom.log:
         print(line)

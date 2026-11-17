@@ -234,3 +234,21 @@ What's been found in the program ROM, with how it was found. (Started 2026-11-06
 - **The miss's chimes**: jingle 0x8019 at 0x956E and 0x979C, only with the time-up flag 0x10A85C (a time-out, or
   any practice miss - set at 0x900C); patch 260 plays them on every miss on the console.
 - **Tour end / skip wait**: 60 frames (0x10A8A2) set at 0xC51E (the tour's end) / 0xC538 (a skip) - patch 200.
+
+## Character select (2026-11-16)
+- Course step 16, 0x7530 on. 0x10A89A < 0 = the slide state (0x7678). The pick (0x7784, on a press - 0x10A7C4, new
+  presses from 0x10FE11 - or the timer, 0x10A85C): sound 1, the character to 0x108EBE (pick x 4), FIX_CLEAR, objects
+  0 (the MAN / LADY box) and the other character deleted (0x1E92), the chosen one (object 1 + pick: the man at x 136,
+  the lady at 184) gets bit 2 of +11 (its animation held), 0x10A89E = 320, 0x7C / 0x7E = 1 (the bottom band's fix /
+  sprites, drawn once by the vblank: 0x17D50 / 0x17D8A), 0x10A89C = 180.
+- The slide state: x (0x10A89E) - 8 a frame; above 144 the animation is held, released between 160 and 144; at 144
+  the hold counts 0x10A89C down (a press skips it), then 0x7734 -> course step 20.
+- The clock's digits: redrawn by the vblank (0x3908 -> 0x14378) while the long 0x10A860 isn't -1, which it then sets.
+- 0x17D20: the fix layer all 0xBFD0 (black), column by column (10 callers: screen changes). 0xC004C8 (system ROM):
+  every sprite cleared, ~36 lines. Both ran into the picture going into the character select (patch 270).
+- The select's own opening (course step 16, 0x782E by 0x10A89A): state 0 (0x7842) the fix layer black (0x17D20);
+  state 4 (0x7864) clears rows from the middle out, 4 a frame for 8 frames (script 126); state 8 (0x78F6) the set-up:
+  palettes, objects 0-2 (0x197C), MAN / LADY straight to the fix layer (0x1803A: d0 column, d1 row, d2 character),
+  the band, the clock (9 s) and two queued scripts. The instructions' end (0xD8A8, skipped or not): sprites cleared,
+  0x25D6 (~135 lines of sprite-tile clearing), FIX_CLEAR, step 8 (0xD5E0: sprites cleared again, FIX_CLEAR, the
+  wallpaper asked for). The clock's redraw word 0x10A860 holds the seconds shown.

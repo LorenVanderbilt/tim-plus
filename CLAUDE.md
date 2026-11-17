@@ -20,7 +20,7 @@ repo with no remote, by the user's choice: commit only when the user says so, ne
   s1, m1, v1, v2, c1-c2 (4 MB each), 236-bios (its own MVS BIOS). The first zip (`roms/irrmaze-old-v2-dump.zip`:
   .bin names, a scrambled 236-v2 that made some jingles crackle) is kept but unused. `roms/neogeo.zip` (MVS BIOS), `roms/aes.zip` (ngdevkit's open AES BIOS). `tools/hackbuild.py` applies
   `patches/*.py` (in name order) and writes `build/roms/` (MVS) and `build/aes/` (AES cartridge + software list - MAME's
-  own entry with the patched files' checksums). `./run.sh` builds and plays (AES by default; `--mvs` the arcade).
+  own entry with the patched files' checksums). `./run.sh` builds and plays (AES by default; `--mvs` the trackball cabinet; `--std` a standard MVS, MV-4F).
 - A patch = `NAME`, `DESCRIPTION`, `apply(rom)`: `rom.write(addr, new, expect=old, why=...)` (fails loudly if the
   ROM doesn't match), `rom.place_code(asm)` (assembles into free space, 0x0F1000+ - ~60 KB at the fixed half's end), `rom.alloc`, tile helpers.
   `tools/free_space.py` lists the original's unused space and vectors.
@@ -43,8 +43,11 @@ repo with no remote, by the user's choice: commit only when the user says so, ne
 - **Commit and push only after the user confirms.** Commit messages end with the Co-Authored-By line the session
   gives. Keep `TODO.md` up to date as work is done - but it's local for now (git-excluded via `.git/info/exclude`,
   the user's call 2026-10-25): never commit it until they say so. (GitHub remote: origin, LorenVanderbilt/tim-plus.)
-- **AES first, MVS untouched.** The AES version is the target. Avoid changing anything that affects the MVS game
-  (gate new code on the machine type), and tell the user before a change does. Anything that permanently changes
+- **The trackball cabinet untouched; the console and standard MVS get the Plus.** (The user, 2026-11-16: the original
+  only ran on its own trackball cabinet, so the hack is for anyone with a joystick.) Gate new code on patch 280's
+  switch PLUS_OFF (0x10EC63: 0 on the AES and a standard MVS, 0x80 only on the cabinet's 236-bios) - `tst.b` it as
+  the older patches test 0x10FD82 (280 re-points theirs). Arcade-only matters (coins, credits, the attract cycle,
+  operator settings) still check 0x10FD82. Tell the user before a change reaches the cabinet's game. Anything that permanently changes
   the AES version - overwriting text or graphics, rather than adding new ones in free space - needs their permission
   first.
 - **New code goes in the newest / last patch. Never grow or shrink an earlier patch's code**: it moves every later
