@@ -67,6 +67,13 @@ same per-system steps. The patches change these files of the set; check yours ma
 | 236-c1.c1 | 4194304 | c1d47902 | 727001c34f979226fc8f581113ce2aaac4fc0d42 |
 | 236-c2.c2 | 4194304 | e15f972e | 6a329559c57a67be73a6733513b59e9e6c8d61cc |
 
+The sound files aren't patched, but check them too: an older bad dump of 236-v2 makes some jingles crackle.
+
+| File | Size | CRC32 | SHA-1 |
+|---|---|---|---|
+| 236-v1.v1 | 2097152 | 5f89c3b4 | dc8fd561cf8dfdd41696dcf14ea8d2d0ac4eec4b |
+| 236-v2.v2 | 1048576 | 72e3add7 | dc49f05274693255416d2e41ecc088027b798eb9 |
+
 Play it on the Neo Geo **AES** (home console) or a standard **MVS**: in MAME, `mame aes -cart irrmaze` or
 `mame ng_mv4f -cart1 irrmaze`. In RetroArch's FinalBurn Neo, set the BIOS to UniBIOS: its default for this game is
 the trackball cabinet's BIOS, which plays the original.
