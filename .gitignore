@@ -17,3 +17,11 @@ local.cfg
 dist/
 art/title_sky_preview.png
 art/title_sky_try*.png
+# The original game's own graphics, kept locally as drawing references - never committed
+# (the ones the build reads stay: art/course_maps, art/rod/ball_80_*, art/swing_bar, art/title_plus/plus_*)
+art/menu_bg/
+art/rod/ball_full_*.png
+art/title_plus/logo_parts/
+art/title_plus/ideas/
+art/title_plus/mockup_*
+art/title_plus/title_screen*.png
