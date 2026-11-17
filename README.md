@@ -75,11 +75,12 @@ The sound files aren't patched, but check them too: an older bad dump of 236-v2 
 | 236-v2.v2 | 1048576 | 72e3add7 | dc49f05274693255416d2e41ecc088027b798eb9 |
 
 Play it on the Neo Geo **AES** (home console) or a standard **MVS**: in MAME, `mame aes -cart irrmaze` or
-`mame ng_mv4f -cart1 irrmaze`. In RetroArch's FinalBurn Neo, set the BIOS to UniBIOS: its default for this game is
-the trackball cabinet's BIOS, which plays the original.
+`mame ng_mv4f -cart1 irrmaze`. In RetroArch's FinalBurn Neo it starts as an MVS; for the home console version, set
+the BIOS to a Universe BIOS (any version) in AES mode.
 
 **Tested on:** a real Neo Geo on a CRT (BackBit Platinum, AES and MVS modes), the Analogue Pocket (AES and MVS
-modes) and MAME on macOS. RetroArch and MiSTer should work but are untested - reports welcome.
+modes), RetroArch FinalBurn Neo on a Retroid Pocket, and MAME on macOS. MiSTer should work but is untested -
+reports welcome.
 
 ## Building from source
 

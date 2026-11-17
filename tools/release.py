@@ -20,7 +20,7 @@ Darksoft-style layout is data here (DARK), which the patcher reads.
 
 The game is an MVS-only release for a trackball cabinet with its own BIOS; patch 280 turns the Plus on with any
 other BIOS. So every package needs a usual BIOS: MAME's aes / ng_mv4f machines (not "mame irrmaze", the cabinet),
-FinalBurn Neo with UniBIOS chosen (its irrmaze offers the trackball BIOS or UniBIOS 2.2-4.0, d_neogeo.cpp), the
+FinalBurn Neo running it under a usual game's driver (FBNEO_DRIVER: not irrmaze's trackball set-up), the
 BackBit in either mode, MiSTer and the Analogue Pocket with their usual BIOS files.
 """
 import argparse
@@ -62,11 +62,17 @@ DARK = {            # the Darksoft-style folder's files from the MAME set's (the
 }
 BACKBIT_FOLDER = "The Irritating Maze Plus"     # the cart's menu shows the folder's name
 FBNEO_NAME = "timplus"              # the RomData set's zip and .dat
+FBNEO_DRIVER = "neocup98"           # the FBNeo driver it runs under. Not irrmaze: that one sets up the trackball
+                                    # (no joystick for player 1) and its own BIOS list. Neo-Geo Cup '98 has the
+                                    # same 2 MB program ROM (halves swapped, HARDWARE_SNK_SWAPP), the usual BIOS
+                                    # list (UniBIOS, AES / MVS) and the usual joystick (the user's RetroArch,
+                                    # 2026-11-17: irrmaze's controls didn't work, and its sound was half missing)
 FBNEO_TYPES = {"236-p1.p1": "1, BRF_ESS, BRF_PRG", "236-s1.s1": "2, BRF_GRA", "236-c1.c1": "3, BRF_GRA",
                "236-c2.c2": "3, BRF_GRA", "236-m1.m1": "4, BRF_ESS, BRF_PRG", "236-v1.v1": "5, BRF_SND",
-               "236-v2.v2": "6, BRF_SND"}
-                                    # each file's ROM type, in the order of FBNeo's irrmaze entry (d_neogeo.cpp):
-                                    # written out, as its RetroArch core's RomData parser needs a type on each line
+               "236-v2.v2": "5, BRF_SND"}
+                                    # each file's ROM type (FBNeo's order): written out, as its RetroArch core's
+                                    # RomData parser needs a type on each line. Both V ROMs are ADPCM-A (type 5),
+                                    # as on the cartridge and in MAME - FBNeo's irrmaze has 236-v2 as ADPCM-B (6)
 POCKET_FOLDER = "timplus"           # in Assets/ng/common/: its own name, so the original irrmaze folder stays
 POCKET_JSON = {                     # Mazamars312's Neo Geo core: a copy of its own Irritating Maze instance file
     "instance": {                   # (dist/Assets/ng/Mazamars312.NeoGeo/Irritating Maze.json), pointed at
@@ -146,16 +152,17 @@ def packages(version, private=False):
             [["timplus.zip", "zip", GAME_FILES], ["timplus.dat", "dat", None]],
             "RetroArch (FinalBurn Neo)",
             ["timplus.zip  the patched game",
-             "timplus.dat  tells FinalBurn Neo to run it as The Irritating Maze - keep it next to timplus.zip",
+             "timplus.dat  tells FinalBurn Neo how to run it - keep it next to timplus.zip",
              "README.txt   this file"],
             ["Copy timplus.zip and timplus.dat into the folder with your other Neo Geo games, side by side. The Neo"
-             " Geo BIOS, neogeo.zip, needs to be in that folder or in RetroArch's system folder, with the Universe"
-             " BIOS (uni-bios_4_0.rom) in it.",
-             "In RetroArch, choose Load Content, pick timplus.zip and the core \"Arcade (FinalBurn Neo)\".",
-             "Open Quick Menu > Core Options (or the game's dip switches) and set the BIOS to Universe BIOS 4.0, and"
-             " its Unibios mode to AES for the home console version (MVS works too). Then Quick Menu > Restart."],
-            ["The Zap-Rod won't move with the joystick, or a heart-condition warning and the original game come up:"
-             " the BIOS is still the game's own trackball BIOS. Choose the Universe BIOS and restart.",
+             " Geo BIOS, neogeo.zip, needs to be in that folder or in RetroArch's system folder.",
+             "In RetroArch, choose Load Content, pick timplus.zip and the core \"Arcade (FinalBurn Neo)\". It starts"
+             " as an arcade MVS: insert a coin, then Start.",
+             "For the home console version (title menu, options, 2P CHALLENGE): Quick Menu > Core Options, set the"
+             " BIOS to a Universe BIOS (any version your neogeo.zip has) with its Unibios mode on AES, or"
+             " to an AES BIOS. Then Quick Menu > Restart."],
+            ["\"Error loading bios!\" / \"Failed initializing driver\": the BIOS chosen in the core options isn't in"
+             " your neogeo.zip. Choose another (RetroArch's log lists the ones it found).",
              "\"Romset is unknown\": timplus.dat isn't in the same folder as timplus.zip, or the FinalBurn Neo core is"
              " older than mid-2024. Update it with Online Updater > Update Installed Cores.",
              "Use FinalBurn Neo, not RetroArch's MAME cores: those run the game as its trackball cabinet only.",
@@ -280,9 +287,9 @@ def zip_bytes(files):
 
 
 def fbneo_dat(files):
-    """FBNeo's RomData file for the built files: run as irrmaze, from timplus.zip."""
+    """FBNeo's RomData file for the built files: run under FBNEO_DRIVER, from timplus.zip."""
     lines = ["// The Irritating Maze Plus: Final Burn Neo RomData (load %s.zip, this file next to it)" % FBNEO_NAME,
-             "ZipName:  " + FBNEO_NAME, "DrvName:  irrmaze", "FullName: \"The Irritating Maze Plus\""]
+             "ZipName:  " + FBNEO_NAME, "DrvName:  " + FBNEO_DRIVER, "FullName: \"The Irritating Maze Plus\""]
     lines.append("")
     lines += ["%-12s 0x%06x, 0x%08x, %s" % (n + ",", len(files[n]), zlib.crc32(files[n]), FBNEO_TYPES[n])
               for n in FBNEO_TYPES]           # (in the driver's order)
@@ -452,9 +459,9 @@ MAME set (MAME, RetroArch, most emulators)
 
 RetroArch, Final Burn Neo core
   Patch the MAME set's files as above, but zip them as timplus.zip instead, and put it in your ROMs folder with
-  fbneo/timplus.dat from this zip next to it (and neogeo.zip, with the Universe BIOS). Load timplus.zip, and in
-  the core's options set the BIOS to Universe BIOS 4.0 (its mode AES or MVS) - the game's own trackball BIOS
-  plays the original game.
+  fbneo/timplus.dat from this zip next to it (and neogeo.zip). Load timplus.zip: it starts as an arcade MVS. For
+  the home console version, set the core options' BIOS to a Universe BIOS (any version, its mode AES) or an AES
+  BIOS, and restart.
 
 Darksoft-style set (MiSTer, Analogue Pocket)
   If you have the game as a Darksoft-style folder (prom, srom, m1rom, crom0, vroma0, fpga), apply the files in
